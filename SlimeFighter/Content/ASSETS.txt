@@ -1,0 +1,7 @@
+﻿Asets.png/tileset.png is from Green Valley Map Pack by Onimaru and released to open domain on itch.io (https://onimaru.itch.io/green-valley-map-pack)
+
+3D Crate images from Rust Ltd. (http://www.rustltd.com/) and released to open domain on OpenGameArt (https://opengameart.org/content/3-crate-textures-w-bump-normal)
+
+All other assets belong to Lukas Hurtig being:
+Crate.png, Potion.png, SlimeCharacter(WithAlpha).png, SlimeLogo.png, EmptyHPBar.png, FullHPBar.png,
+Death.wav, Jump.Wav, KnockDown.wav, Powerup.wav, IntroSong.mp3, & BeepBox-Song.mp3
