@@ -2,6 +2,8 @@
 
 3D Crate images from Rust Ltd. (http://www.rustltd.com/) and released to open domain on OpenGameArt (https://opengameart.org/content/3-crate-textures-w-bump-normal)
 
+Jellee Font created by Hanken Design Co. under the SIL Open Font License (OFL) (https://openfontlicense.org/)
+
 All other assets belong to Lukas Hurtig being:
 Crate.png, Potion.png, SlimeCharacter(WithAlpha).png, SlimeLogo.png, EmptyHPBar.png, FullHPBar.png,
 Death.wav, Jump.Wav, KnockDown.wav, Powerup.wav, IntroSong.mp3, & BeepBox-Song.mp3

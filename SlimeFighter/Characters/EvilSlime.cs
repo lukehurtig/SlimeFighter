@@ -82,7 +82,7 @@ namespace SlimeFighter.Characters
                 {
                     death = true;
                     deathSound.Play();
-                    gameGrid[xPos, yPos] = 0;
+                    gameGrid[xPos, yPos] = (int)CellType.Open;
                 }
             }
 
@@ -106,7 +106,7 @@ namespace SlimeFighter.Characters
                 attacking = false;
 
                 // Basic movement logic towards the player
-                gameGrid[xPos, yPos] = 0;
+                gameGrid[xPos, yPos] = (int)CellType.Open;
 
                 if (Math.Abs(distanceX) > Math.Abs(distanceY))
                 {
@@ -119,7 +119,7 @@ namespace SlimeFighter.Characters
                     else if (distanceY < 1 && yPos > 0 && gameGrid[xPos, yPos - 1] != 1) yPos -= 1;  // Move up
                 }
 
-                gameGrid[xPos, yPos] = 6;
+                gameGrid[xPos, yPos] = (int)CellType.EvilSlime;
             }
         }
 

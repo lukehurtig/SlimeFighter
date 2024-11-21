@@ -12,6 +12,17 @@ using SlimeFighter._3DAssets;
 
 namespace SlimeFighter
 {
+    public enum state
+    {
+        titleScreen,
+        tutorial,
+        gameLive,
+        pause,
+        lootChest,
+        transition,
+        gameOver
+    }
+
     public class Game1 : Game
     {
         /// <summary>
@@ -22,9 +33,7 @@ namespace SlimeFighter
         private SpriteBatch _spriteBatch;
         private SpriteBatch _spriteBatch2;
         private Tilemap _tilemap;
-        private bool _menuActive;
-        private bool _gamePaused;
-        private bool _instructions;
+        private state gameState;
 
         /// <summary>
         /// The game field representation
@@ -37,7 +46,6 @@ namespace SlimeFighter
         /// </summary>
         private bool _crateHit = false;
         private bool _potionCollected = false;
-        private bool _WIPbarrier = false;
         private Texture2D crate2D;
         private Texture2D potion;
         private Vector2 cratePos = new Vector2((float)(13 * 32f) + 30, (float)(6 * 32f) + 125);
@@ -76,7 +84,7 @@ namespace SlimeFighter
         {
             int x = _random.Next(27);
             int y = _random.Next(12);
-            _menuActive = true;
+            gameState = state.titleScreen;
 
             // TODO: Add your initialization logic here
             _tilemap = new Tilemap("map.txt");
@@ -134,136 +142,140 @@ namespace SlimeFighter
             gamePadState = GamePad.GetState(PlayerIndex.One);
             keyboardState = Keyboard.GetState();
 
-            #region Menu Updates
-            if (_menuActive)
+            switch (gameState)
             {
-                if (_instructions)
-                {
-                    if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
-                    (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
-                        _instructions = false;
-                }
-                else
-                {
+                case state.titleScreen:
                     if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
                     {
                         MediaPlayer.Play(gameplay);
-                        _menuActive = false;
+                        gameState = state.gameLive;
                     }
                     if (gamePadState.Buttons.Y == ButtonState.Pressed || keyboardState.IsKeyDown(Keys.Space))
                     {
-                        _instructions = true;
+                        gameState = state.tutorial;
                     }
                     if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Escape)) && !previousKeyboardState.IsKeyDown(Keys.Escape))
                     {
                         Exit();
                     }
-                }
-            }
-            #endregion Menu Updates
+                    break;
 
-            else if (!_gamePaused && !_WIPbarrier && !hero.Death)
-            {
-                int damageToHero = 0;
-                int damageToEnemy = 0;
+                case state.tutorial:
+                    if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
+                    (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
+                        gameState = state.titleScreen;
+                    break;
 
-                if (Vector2.Distance(hero.Position, enemySlime.Position) < 50f && hero.HasMoved && !enemySlime.Death)
-                {
-                    // Apply damage if both slimes are attacking
-                    if (hero.Attacking && !enemySlime.Attacking)
-                        damageToEnemy = hero.Attack * 2;
-                    else if (!hero.Attacking && enemySlime.Attacking)
-                        damageToHero = enemySlime.Attack * 2;
-                    if (hero.Attacking && enemySlime.Attacking)
+                case state.gameLive:
+                    int damageToHero = 0;
+                    int damageToEnemy = 0;
+
+                    if (Vector2.Distance(hero.Position, enemySlime.Position) < 50f && hero.HasMoved && !enemySlime.Death)
                     {
-                        damageToEnemy = hero.Attack;
-                        damageToHero = enemySlime.Attack;
-                    }                    
-                }
+                        // Apply damage if both slimes are attacking
+                        if (hero.Attacking && !enemySlime.Attacking)
+                            damageToEnemy = hero.Attack * 2;
+                        else if (!hero.Attacking && enemySlime.Attacking)
+                            damageToHero = enemySlime.Attack * 2;
+                        if (hero.Attacking && enemySlime.Attacking)
+                        {
+                            damageToEnemy = hero.Attack;
+                            damageToHero = enemySlime.Attack;
+                        }
+                    }
 
-                if (enemySlime.Death && !_potionCollected && Vector2.Distance(hero.Position, enemySlime.Position) < 10f)
-                {
-                    hero.Heal(5);
-                    _potionCollected = true;
-                }
+                    if (enemySlime.Death && !_potionCollected && Vector2.Distance(hero.Position, enemySlime.Position) < 10f)
+                    {
+                        hero.Heal(5);
+                        _potionCollected = true;
+                    }
 
-                if (enemySlime.Death && !_crateHit && (Vector2.Distance(hero.Position, cratePos) < 50f ||
-                    Vector2.Distance(hero.Position, cratePos2) < 50f) && hero.Attacking)
-                {
-                    _crateHit = true;
-                    _WIPbarrier = true;
-                }
+                    if (enemySlime.Death && !_crateHit && (Vector2.Distance(hero.Position, cratePos) < 50f ||
+                        Vector2.Distance(hero.Position, cratePos2) < 50f) && hero.Attacking)
+                    {
+                        _crateHit = true;
+                        gameState = state.lootChest;
+                    }
 
-                // TODO: Add your update logic here
-                if (hero.HasMoved) enemySlime.Update(gameTime, ref _gridSpaces, hero.Position, damageToEnemy);
-                hero.Update(gameTime, ref _gridSpaces, damageToHero);
+                    if (hero.HasMoved) enemySlime.Update(gameTime, ref _gridSpaces, hero.Position, damageToEnemy);
+                    hero.Update(gameTime, ref _gridSpaces, damageToHero);
 
-                if (enemySlime.Death)
-                {
-                    _gridSpaces[13, 6] = 7;
-                    _gridSpaces[13, 7] = 7;
-                    _gridSpaces[14, 6] = 7;
-                    _gridSpaces[14, 7] = 7;
-                }
+                    if (enemySlime.Death)
+                    {
+                        _gridSpaces[13, 6] = (int)CellType.Crate;
+                        _gridSpaces[13, 7] = (int)CellType.Crate;
+                        _gridSpaces[14, 6] = (int)CellType.Crate;
+                        _gridSpaces[14, 7] = (int)CellType.Crate;
+                    }
 
-                if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
+                    if (hero.Death)
+                    {
+                        gameState = state.gameOver;
+                    }
+
+                    if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
+                        (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
+                        gameState = state.pause;
+                    break;
+
+                case state.pause:
+                    if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
                     (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
-                    _gamePaused = true;
-            }
+                        gameState = state.gameLive;
 
-            else if (_WIPbarrier)
-            {
-                camera.Update(gameTime);
+                    if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
+                        (keyboardState.IsKeyDown(Keys.Escape)) && !previousKeyboardState.IsKeyDown(Keys.Escape))
+                    {
+                        gameState = state.titleScreen;
+                        hero.ResetValues();
+                        enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
+                        MediaPlayer.Play(intro);
+                    }
+                    break;
 
-                if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
-                    (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
-                {
-                    // Temp variables to get game running
-                    _WIPbarrier = false;
-                    _crateHit = false;
-                    _potionCollected = false;
-                    _gridSpaces[13, 6] = 0;
-                    _gridSpaces[13, 7] = 0;
-                    _gridSpaces[14, 6] = 0;
-                    _gridSpaces[14, 7] = 0;
+                case state.lootChest:
+                    camera.Update(gameTime);
 
-                    _gamePaused = false;
-                    _menuActive = true;
+                    if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
+                        (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
+                    {
+                        // Temp variables to get game running
+                        _crateHit = false;
+                        _potionCollected = false;
+                        _gridSpaces[13, 6] = (int)CellType.Open;
+                        _gridSpaces[13, 7] = (int)CellType.Open;
+                        _gridSpaces[14, 6] = (int)CellType.Open;
+                        _gridSpaces[14, 7] = (int)CellType.Open;
+
+                        gameState = state.titleScreen;
+                        hero.ResetValues();
+                        enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
+                        MediaPlayer.Play(intro);
+                    }
+
+                    if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
+                        (keyboardState.IsKeyDown(Keys.Escape)) && !previousKeyboardState.IsKeyDown(Keys.Escape))
+                        Exit();
+                    break;
+
+                case state.transition:
+                    // TODO: Still need to implement screen between stages and decisions for player to improve slime
+                    break;
+
+                case state.gameOver:
+                    gameState = state.titleScreen;
                     hero.ResetValues();
                     enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
                     MediaPlayer.Play(intro);
-                }
+                    break;
 
-                if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
-                    (keyboardState.IsKeyDown(Keys.Escape)) && !previousKeyboardState.IsKeyDown(Keys.Escape))
-                    Exit();
+                default:
+                    // TODO make a screen that says you should never be here.
+                    break;
             }
 
-            else if (hero.Death)
-            {
-                _menuActive = true;
-                hero.ResetValues();
-                MediaPlayer.Play(intro);
-            }
-
-            else
-            {
-                if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
-                    (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
-                    _gamePaused = false;
-
-                if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
-                    (keyboardState.IsKeyDown(Keys.Escape)) && !previousKeyboardState.IsKeyDown(Keys.Escape))
-                {
-                    _gamePaused = false;
-                    _menuActive = true;
-                    hero.ResetValues();
-                    MediaPlayer.Play(intro);
-                }
-            }
-                        
             base.Update(gameTime);
         }
 
@@ -276,7 +288,7 @@ namespace SlimeFighter
             _spriteBatch.Begin(transformMatrix: transform);
             // TODO: Add your drawing code here            
             _tilemap.Draw(gameTime, _spriteBatch);
-            if (!_menuActive)
+            if (gameState > state.tutorial)
             {
                 if (enemySlime.Death)
                 {
@@ -295,22 +307,25 @@ namespace SlimeFighter
             _spriteBatch.End();
             
             _spriteBatch2.Begin();
-            if (_gamePaused) _spriteBatch2.DrawString(spriteFont, "    - Press Start or Enter to Resume -\n- Press Back or Esc to Return to Menu -",
+            if (gameState == state.pause)
+            {
+                _spriteBatch2.DrawString(spriteFont, "    - Press Start or Enter to Resume -\n- Press Back or Esc to Return to Menu -",
                     new Vector2(_graphics.GraphicsDevice.Viewport.Width * 0.5f - 280,
                     (_graphics.GraphicsDevice.Viewport.Height * 0.5f) - 20), Color.LightGoldenrodYellow);
-            if (_menuActive)
-            {                
-                if (_instructions) _spriteBatch2.DrawString(spriteFont, "- Move with WASD, Arrow Keys, or DPad\n- Press Space Bar or Right Trigger to Attack\n- Press Enter or Start to Pause the game\n-The goal of the game is to survive as many\n rounds as possible, every round you survive\n the stronger you get, but watch your health (HP)\n\n   - Press Enter or Start to Return to Menu -",
-                    new Vector2(75, 100), Color.LightGoldenrodYellow);
-                else
-                {
-                    _spriteBatch2.DrawString(spriteFont, "     - Press Start or Enter to Play -\nPress Y or Space Bar for Instructions\n  - Press Back or Esc to Exit Game -",
-                        new Vector2((_graphics.GraphicsDevice.Viewport.Width / 2) - 250, 270), Microsoft.Xna.Framework.Color.LightGoldenrodYellow);
-                    _spriteBatch2.Draw(title, new Vector2((_graphics.GraphicsDevice.Viewport.Width / 2) - 200, 30), new Rectangle(0, 0, 2000, 1000),
-                        Color.White, 0, new Vector2(0, 0), .2f, SpriteEffects.None, 0);
-                }
             }
-            if (_WIPbarrier)
+            if (gameState == state.titleScreen)
+            {
+                _spriteBatch2.DrawString(spriteFont, "     - Press Start or Enter to Play -\nPress Y or Space Bar for Instructions\n  - Press Back or Esc to Exit Game -",
+                    new Vector2((_graphics.GraphicsDevice.Viewport.Width / 2) - 250, 270), Microsoft.Xna.Framework.Color.LightGoldenrodYellow);
+                _spriteBatch2.Draw(title, new Vector2((_graphics.GraphicsDevice.Viewport.Width / 2) - 200, 30), new Rectangle(0, 0, 2000, 1000),
+                    Color.White, 0, new Vector2(0, 0), .2f, SpriteEffects.None, 0);
+            }
+            if (gameState == state.tutorial)
+            {
+                _spriteBatch2.DrawString(spriteFont, "- Move with WASD, Arrow Keys, or DPad\n- Press Space Bar or Right Trigger to Attack\n- Press Enter or Start to Pause the game\n-The goal of the game is to survive as many\n rounds as possible, every round you survive\n the stronger you get, but watch your health (HP)\n\n   - Press Enter or Start to Return to Menu -",
+                    new Vector2(75, 100), Color.LightGoldenrodYellow);
+            }
+            if (gameState == state.lootChest)
             {
                 crate.Draw(camera);
                 _spriteBatch2.DrawString(spriteFont, "- This game is still a Work in Progress\n I intend to make it so each crate destroyed\n upgrades the player through stats,\n abilities or attack types.\n- Also more enemies to come with\n varied spawns and ammounts\n- Also AI could use a little work, but solid start\n\n   - Press Enter or Start to Return to Menu -\n   - Or Press ESC or Back to Exit the Game -",

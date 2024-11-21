@@ -107,9 +107,9 @@ namespace SlimeFighter.Characters
                     (keyboardState.IsKeyDown(Keys.Right) && !previousKeyboardState.IsKeyDown(Keys.Right)) ||
                     (keyboardState.IsKeyDown(Keys.D) && !previousKeyboardState.IsKeyDown(Keys.D))) && xPos < 27)
                     {
-                        if (gameGrid[xPos + 1, yPos] <= 5)
+                        if (gameGrid[xPos + 1, yPos] < (int)CellType.Crate)
                         {
-                            gameGrid[xPos, yPos] = 0;
+                            gameGrid[xPos, yPos] = (int)CellType.Open;
                             xPos++;
                             direction = 'E';
                             HasMoved = true;
@@ -120,9 +120,9 @@ namespace SlimeFighter.Characters
                         (keyboardState.IsKeyDown(Keys.Left) && !previousKeyboardState.IsKeyDown(Keys.Left)) ||
                         (keyboardState.IsKeyDown(Keys.A) && !previousKeyboardState.IsKeyDown(Keys.A))) && xPos > 0)
                     {
-                        if (gameGrid[xPos - 1, yPos] <= 5)
+                        if (gameGrid[xPos - 1, yPos] < (int)CellType.Crate)
                         {
-                            gameGrid[xPos, yPos] = 0;
+                            gameGrid[xPos, yPos] = (int)CellType.Open;
                             xPos--;
                             direction = 'W';
                             HasMoved = true;
@@ -133,9 +133,9 @@ namespace SlimeFighter.Characters
                         (keyboardState.IsKeyDown(Keys.Up) && !previousKeyboardState.IsKeyDown(Keys.Up)) ||
                         (keyboardState.IsKeyDown(Keys.W) && !previousKeyboardState.IsKeyDown(Keys.W))) && yPos > 0)
                     {
-                        if (gameGrid[xPos, yPos - 1] <= 5)
+                        if (gameGrid[xPos, yPos - 1] < (int)CellType.Crate)
                         {
-                            gameGrid[xPos, yPos] = 0;
+                            gameGrid[xPos, yPos] = (int)CellType.Open;
                             yPos--;
                             direction = 'N';
                             HasMoved = true;
@@ -146,16 +146,16 @@ namespace SlimeFighter.Characters
                         (keyboardState.IsKeyDown(Keys.Down) && !previousKeyboardState.IsKeyDown(Keys.Down)) ||
                         (keyboardState.IsKeyDown(Keys.S) && !previousKeyboardState.IsKeyDown(Keys.S))) && yPos < 12)
                     {
-                        if (gameGrid[xPos, yPos + 1] <= 5)
+                        if (gameGrid[xPos, yPos + 1] < (int)CellType.Crate)
                         {
-                            gameGrid[xPos, yPos] = 0;
+                            gameGrid[xPos, yPos] = (int)CellType.Open;
                             yPos++;
                             direction = 'S';
                             HasMoved = true;
                         }
                         else direction = 'S';
                     }
-                    gameGrid[xPos, yPos] = 1;
+                    gameGrid[xPos, yPos] = (int)CellType.Slime;
                 }
 
                 if ((gamePadState.IsButtonDown(Buttons.RightTrigger) && !previousGamePadState.IsButtonDown(Buttons.RightTrigger)) ||
