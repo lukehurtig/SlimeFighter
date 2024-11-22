@@ -39,7 +39,7 @@ namespace SlimeFighter
         /// The game field representation
         /// </summary>
         private int[,] _gridSpaces = new int[28, 13];
-        private float _tileSize = 32f;
+        private static float _tileSize = 32f;
 
         /// <summary>
         /// Need to make classes for these objects just had to patch over to finish
@@ -48,8 +48,8 @@ namespace SlimeFighter
         private bool _potionCollected = false;
         private Texture2D crate2D;
         private Texture2D potion;
-        private Vector2 cratePos = new Vector2((float)(13 * 32f) + 30, (float)(6 * 32f) + 125);
-        private Vector2 cratePos2 = new Vector2((float)(14 * 32f) + 30, (float)(7 * 32f) + 125);
+        private Vector2 cratePos = new Vector2((float)(13 * _tileSize) + 30, (float)(6 * _tileSize) + 125);
+        private Vector2 cratePos2 = new Vector2((float)(14 * _tileSize) + 30, (float)(7 * _tileSize) + 125);
 
         /// <summary>
         /// All the necessary in-game objects probably could export some of these outside the Game class
@@ -148,6 +148,7 @@ namespace SlimeFighter
                     if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
                     {
+                        _gridSpaces = new int[28, 13];
                         MediaPlayer.Play(gameplay);
                         gameState = state.gameLive;
                     }
@@ -169,9 +170,10 @@ namespace SlimeFighter
                     break;
 
                 case state.gameLive:
-                    int damageToHero = 0;
-                    int damageToEnemy = 0;
 
+                    /*
+                     * Commented out becuase I am testing my new hit detection function DamageTaken()
+                     * 
                     if (Vector2.Distance(hero.Position, enemySlime.Position) < 50f && hero.HasMoved && !enemySlime.Death)
                     {
                         // Apply damage if both slimes are attacking
@@ -185,6 +187,7 @@ namespace SlimeFighter
                             damageToHero = enemySlime.Attack;
                         }
                     }
+                    */                    
 
                     if (enemySlime.Death && !_potionCollected && Vector2.Distance(hero.Position, enemySlime.Position) < 10f)
                     {
@@ -199,11 +202,24 @@ namespace SlimeFighter
                         gameState = state.lootChest;
                     }
 
-                    if (hero.HasMoved) enemySlime.Update(gameTime, ref _gridSpaces, hero.Position, damageToEnemy);
-                    hero.Update(gameTime, ref _gridSpaces, damageToHero);
+                    if (hero.HasMoved)
+                    {
+                        if (enemySlime.Attacking)
+                        {
+                            DamageCheck(enemySlime.XPos, enemySlime.YPos, enemySlime.AttackDistance, enemySlime.Attack, true, enemySlime.AttackClass, enemySlime.Direction);
+                        }
+                        enemySlime.Update(gameTime, ref _gridSpaces, hero.Position);
+                    }
+                    if (hero.Attacking)
+                    {
+                        DamageCheck(hero.XPos, hero.YPos, hero.AttackDistance, hero.Attack, false, hero.AttackClass, hero.Direction);
+                    }
+                    hero.Update(gameTime, ref _gridSpaces);
 
                     if (enemySlime.Death)
                     {
+                        _gridSpaces[enemySlime.XPos, enemySlime.YPos] = (int)CellType.Potion;
+
                         _gridSpaces[13, 6] = (int)CellType.Crate;
                         _gridSpaces[13, 7] = (int)CellType.Crate;
                         _gridSpaces[14, 6] = (int)CellType.Crate;
@@ -334,6 +350,179 @@ namespace SlimeFighter
             _spriteBatch2.End();            
 
             base.Draw(gameTime);
+        }
+
+        private bool DamageCheck(int xCord, int yCord, int range, int damage, bool enemy, AttackType attackType, char dir = 'W')
+        {
+            int xLowerBounds, xUpperBounds, yLowerBounds, yUpperBounds;
+            if (xCord < range) xLowerBounds = 0;
+            else xLowerBounds = xCord - range;
+
+            if (yCord < range) yLowerBounds = range;
+            else yLowerBounds = yCord - range;
+
+            if ((xCord + range) > _gridSpaces.GetLength(0) - 1) xUpperBounds = _gridSpaces.GetLength(0) - 1;
+            else xUpperBounds = xCord + range;
+
+            if ((yCord + range) > _gridSpaces.GetLength(1) - 1) yUpperBounds = _gridSpaces.GetLength(1) - 1;
+            else yUpperBounds = yCord + range;
+
+            switch (attackType)
+            {
+                case AttackType.StraightAhead:
+                    switch (dir)
+                    {
+                        case 'N':
+                            xLowerBounds = xUpperBounds = xCord;
+                            yUpperBounds = yCord;
+                            break;
+                        case 'W':
+                            xUpperBounds = xCord;
+                            yLowerBounds = yUpperBounds = yCord;
+                            break;
+                        case 'S':
+                            xLowerBounds = xUpperBounds = xCord;
+                            yLowerBounds = yCord;
+                            break;
+                        default:
+                            xLowerBounds = xCord;
+                            yLowerBounds = yUpperBounds = yCord;
+                            break;
+                    }
+
+                    for (int x = xLowerBounds; x <= xUpperBounds; x++)
+                    {
+                        for (int y = yLowerBounds; y <= yUpperBounds; y++)
+                        {
+                            if (enemy)
+                            {
+                                if (_gridSpaces[x, y] == (int)CellType.Slime) hero.TakeDamage(damage);
+                            }
+                            /*
+                            * TODO: Need to change once I add more than one enemy
+                            */
+                            else if (_gridSpaces[x, y] >= (int)CellType.EvilSlime)
+                            {
+                                enemySlime.TakeDamage(damage);
+                            }
+                        }
+                    }
+                    break;
+
+                case AttackType.Plus:
+                    for (int x = xLowerBounds; x <= xUpperBounds; x++)
+                    {
+                        if (enemy)
+                        {
+                            if (_gridSpaces[x, yCord] == (int)CellType.Slime) hero.TakeDamage(damage);
+                        }
+                        /*
+                        * TODO: Need to change once I add more than one enemy
+                        */
+                        else if (_gridSpaces[x, yCord] >= (int)CellType.EvilSlime)
+                        {                            
+                            enemySlime.TakeDamage(damage);
+                        }
+                    }
+                    for (int y = yLowerBounds; y <= yUpperBounds; y++)
+                    {
+                        if (enemy)
+                        {
+                            if (_gridSpaces[xCord, y] == (int)CellType.Slime) hero.TakeDamage(damage);
+                        }
+                        /*
+                        * TODO: Need to change once I add more than one enemy
+                        */
+                        else if (_gridSpaces[xCord, y] >= (int)CellType.EvilSlime)
+                        {                            
+                            enemySlime.TakeDamage(damage);
+                        }
+                    }
+                    break;
+
+                case AttackType.Ranged:
+                    if (enemy)
+                    {
+                        switch (dir)
+                        {
+                            case 'N':
+                                if (_gridSpaces[xCord, yCord + range] == (int)CellType.Slime) hero.TakeDamage(damage);
+                                break;
+                            case 'W':
+                                if (_gridSpaces[xCord - range, yCord] == (int)CellType.Slime) hero.TakeDamage(damage);
+                                break;
+                            case 'S':
+                                if (_gridSpaces[xCord, yCord - range] == (int)CellType.Slime) hero.TakeDamage(damage);
+                                break;
+                            default:
+                                if (_gridSpaces[xCord + range, yCord] == (int)CellType.Slime) hero.TakeDamage(damage);
+                                break;
+                        }
+                    }
+                    /*
+                     * This will be implemented as more of a powerup where the use selects a tile to shoot at and 
+                     * the coordinates of the selected tile will be fed into this function to check occupancy of enemy
+                     */
+                    else if (_gridSpaces[xCord, yCord] >= (int)CellType.EvilSlime)
+                    {
+                        enemySlime.TakeDamage(damage);
+                    }
+                    break;
+
+                case AttackType.Shock:
+                    for (int x = xLowerBounds; x <= xUpperBounds; x++)
+                    {
+                        for (int y = yLowerBounds; y <= yUpperBounds; y++)
+                        {
+                            if (enemy)
+                            {
+                                if (_gridSpaces[x, y] == (int)CellType.Slime && !hero.Damaged)
+                                {
+                                    hero.TakeDamage(damage);
+                                    DamageCheck(x, y, 1, damage / 2, true, AttackType.Shock);
+                                }
+                            }
+                            /*
+                            * TODO: Need to change once I add more than one enemy and the if(!enemySlime.Damaged) to account
+                            * for more enemies that have already been damaged... maybe check inside conditional with for loop?
+                            */
+                            else if (_gridSpaces[x, y] >= (int)CellType.EvilSlime && !enemySlime.Damaged)
+                            {
+                                enemySlime.TakeDamage(damage);
+                                DamageCheck(x, y, 1, damage / 2, false, AttackType.Shock);
+                            }
+                        }
+                    }
+                    break;
+
+                case AttackType.Radius:
+                    for (int x = xLowerBounds; x <= xUpperBounds; x++)
+                    {
+                        for (int y = yLowerBounds; y <= yUpperBounds; y++)
+                        {
+                            if (enemy)
+                            {
+                                if (_gridSpaces[x, y] == (int)CellType.Slime) hero.TakeDamage(damage);
+                            }
+                            /*
+                            * TODO: Need to change once I add more than one enemy
+                            */
+                            else if (_gridSpaces[x, y] >= (int)CellType.EvilSlime)
+                            {
+                                enemySlime.TakeDamage(damage);
+                            }
+                        }
+                    }                    
+                    break;
+
+                case AttackType.Viral:
+                    /*
+                     * Not sure I know how I want to implement, but I want to work something like it is a weak attack, but once
+                     * you kill one weak peon, all other enemies within a certain range of them will get killed instantly...
+                     */
+                    break;
+            }
+            return false;
         }
     }
 }

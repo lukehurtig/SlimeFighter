@@ -27,6 +27,7 @@ namespace SlimeFighter.Characters
         /// Attributes of the character
         /// </summary>
         private int health;
+        private int maxHealth;
         private int attack;
         private int attackDistance;
         private int speed;
@@ -49,11 +50,14 @@ namespace SlimeFighter.Characters
         public int XPos => xPos;
         public int YPos => yPos;
         public int Health => health;
+        public int MaxHealth => maxHealth;
         public int Attack => attack;
         public int AttackDistance => attackDistance;
         public bool Attacking => attacking;
+        public bool Damaged => damaged;
         public char Direction => direction;
         public bool Death => death;
+        public AttackType AttackClass = AttackType.Plus;
 
         public EvilSlime(int iniPosX, int iniPosY)
         {
@@ -61,7 +65,7 @@ namespace SlimeFighter.Characters
             this.yPos = iniPosY;
             this.health = 10;
             this.attack = 1;
-            this.attackDistance = 2;
+            this.attackDistance = 1;
             this.speed = 1;
             this.direction = 'E';
         }
@@ -72,21 +76,16 @@ namespace SlimeFighter.Characters
             deathSound = content.Load<SoundEffect>("Death");
         }
 
-        public void Update(GameTime gameTime, ref int[,] gameGrid,
-            Vector2 playerPosition, int damageTaken)
+        public void Update(GameTime gameTime, ref int[,] gameGrid, Vector2 playerPosition)
         {
-            if (damageTaken > 0)
-            {
-                health -= damageTaken;
-                if (health <= 0)
-                {
-                    death = true;
-                    deathSound.Play();
-                    gameGrid[xPos, yPos] = (int)CellType.Open;
-                }
-            }
-
             if (death) return;
+            if (health <= 0)
+            {
+                animationIndex = 0;
+                death = true;
+                deathSound.Play();
+                gameGrid[xPos, yPos] = (int)CellType.Open;
+            }
 
             int playerX = (int)((playerPosition.X - 5) / tileSize);
             int playerY = (int)((playerPosition.Y - 120) / tileSize);
@@ -97,7 +96,7 @@ namespace SlimeFighter.Characters
             int totalDistance = Math.Abs(distanceX) + Math.Abs(distanceY);
 
             // Attack if close enough
-            if (totalDistance <= attackDistance)
+            if (totalDistance <= attackDistance && !death)
             {
                 if (totalDistance >= 1) attacking = true;
             }
@@ -110,12 +109,12 @@ namespace SlimeFighter.Characters
 
                 if (Math.Abs(distanceX) > Math.Abs(distanceY))
                 {
-                    if (distanceX > 1 && xPos < gameGrid.GetLength(0) - 1 && gameGrid[xPos + 1, yPos] != 1) xPos += speed;  // Move right
+                    if (distanceX > 1 && xPos < gameGrid.GetLength(0) - 1 && gameGrid[xPos + 1, yPos] != 1) xPos += 1;  // Move right
                     else if (distanceX < 1 && xPos > 0 && gameGrid[xPos - 1, yPos] != 1) xPos -= 1;  // Move left
                 }
                 else
                 {
-                    if (distanceY > 1 && yPos < gameGrid.GetLength(1) - 1 && gameGrid[xPos, yPos + 1] != 1) yPos += speed;  // Move down
+                    if (distanceY > 1 && yPos < gameGrid.GetLength(1) - 1 && gameGrid[xPos, yPos + 1] != 1) yPos += 1;  // Move down
                     else if (distanceY < 1 && yPos > 0 && gameGrid[xPos, yPos - 1] != 1) yPos -= 1;  // Move up
                 }
 
@@ -159,6 +158,27 @@ namespace SlimeFighter.Characters
             if (xPos <= 13) this.direction = 'E';
             else this.direction = 'W';
             this.death = false;
+        }
+
+        public void Heal(int amount)
+        {
+            if (amount + health < maxHealth) health += amount;
+            else health = maxHealth;
+        }
+
+        public void TakeDamage(int amount)
+        {
+            damaged = true;
+            animationFrame = 0;
+
+            if (health - amount < 0)
+            {
+                health = 0;
+            }
+            else
+            {
+                health -= amount;
+            }
         }
     }
 }

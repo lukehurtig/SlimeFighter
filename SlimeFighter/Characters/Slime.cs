@@ -48,12 +48,16 @@ namespace SlimeFighter.Characters
         /// </summary>
         public Vector2 Position => 
             new Vector2((float)(xPos * tileSize) + 30, (float)(yPos * tileSize) + 125);
+        public int XPos => xPos;
+        public int YPos => yPos;
         public int Health => health;
         public int MaxHealth => maxHealth;
         public int Attack => attack;
         public int AttackDistance => attackDistance;
         public bool Attacking => attacking;
+        public bool Damaged => damaged;
         public char Direction => direction;
+        public AttackType AttackClass = AttackType.StraightAhead;
         public bool Death = false;
         public bool Active = false;
         public bool HasMoved = false;
@@ -74,7 +78,7 @@ namespace SlimeFighter.Characters
             deathSound = content.Load<SoundEffect>("Death");
         }
 
-        public void Update(GameTime gameTime, ref int[,] gameGrid, int damageTaken)
+        public void Update(GameTime gameTime, ref int[,] gameGrid)
         {
             HasMoved = false;
             animationTimer += gameTime.ElapsedGameTime.TotalSeconds;
@@ -166,20 +170,6 @@ namespace SlimeFighter.Characters
                     HasMoved = true;
                 }
                 #endregion Input Handling
-
-                if (damageTaken >= 1 || (keyboardState.IsKeyDown(Keys.P) && !previousKeyboardState.IsKeyDown(Keys.P)))
-                {
-                    damaged = true;
-                    animationFrame = 0;
-                    health -= damageTaken;
-                }
-
-                if (health <= 0 || (keyboardState.IsKeyDown(Keys.B) && !previousKeyboardState.IsKeyDown(Keys.B)))
-                {
-                    death = true;
-                    deathSound.Play();
-                    animationIndex = 0;
-                }
             }
         }
 
@@ -230,6 +220,24 @@ namespace SlimeFighter.Characters
         {
             if (amount + health < maxHealth) health += amount;
             else health = maxHealth;
+        }
+
+        public void TakeDamage(int amount)
+        {
+            damaged = true;
+            animationFrame = 0;
+
+            if (health - amount < 0)
+            {
+                health = 0;
+                death = true;
+                deathSound.Play();
+                animationIndex = 0;
+            }
+            else
+            {
+                health -= amount;
+            }
         }
     }
 }
