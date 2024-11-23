@@ -169,7 +169,7 @@ namespace SlimeFighter._3DAssets
         public Crate(Game game, CrateType type, Matrix world)
         {
             this.game = game;
-            this.texture = game.Content.Load<Texture2D>($"crate{(int)type}_diffuse");
+            this.texture = game.Content.Load<Texture2D>($"3DCratePNGs/crate{(int)type}_diffuse");
             InitializeVertices();
             InitializeIndices();
             InitializeEffect();

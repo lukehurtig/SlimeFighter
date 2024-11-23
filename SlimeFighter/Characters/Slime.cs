@@ -129,63 +129,63 @@ namespace SlimeFighter.Characters
                         (keyboardState.IsKeyDown(Keys.Right) && !previousKeyboardState.IsKeyDown(Keys.Right)) ||
                         (keyboardState.IsKeyDown(Keys.D) && !previousKeyboardState.IsKeyDown(Keys.D))) && xPos < 27)
                         {
-                            if (gameGrid[xPos + 1, yPos] < (int)CellType.Crate)
+                            if (gameGrid[xPos + 1, yPos] < (int)CellType.WallLeft)
                             {
                                 gameGrid[xPos, yPos] = (int)CellType.Open;
                                 xPos++;
                                 direction = 'E';
-                                HasMoved = true;
                                 CooldownTimer = 0;
                             }
                             else direction = 'E';
+                            HasMoved = true;
                         }
                         else if (((gamePadState.DPad.Left == ButtonState.Pressed && previousGamePadState.DPad.Left != ButtonState.Pressed) ||
                             (keyboardState.IsKeyDown(Keys.Left) && !previousKeyboardState.IsKeyDown(Keys.Left)) ||
                             (keyboardState.IsKeyDown(Keys.A) && !previousKeyboardState.IsKeyDown(Keys.A))) && xPos > 0)
                         {
-                            if (gameGrid[xPos - 1, yPos] < (int)CellType.Crate)
+                            if (gameGrid[xPos - 1, yPos] < (int)CellType.WallLeft)
                             {
                                 gameGrid[xPos, yPos] = (int)CellType.Open;
                                 xPos--;
                                 direction = 'W';
-                                HasMoved = true;
                                 CooldownTimer = 0;
                             }
                             else direction = 'W';
+                            HasMoved = true;
                         }
                         else if (((gamePadState.DPad.Up == ButtonState.Pressed && previousGamePadState.DPad.Up != ButtonState.Pressed) ||
                             (keyboardState.IsKeyDown(Keys.Up) && !previousKeyboardState.IsKeyDown(Keys.Up)) ||
                             (keyboardState.IsKeyDown(Keys.W) && !previousKeyboardState.IsKeyDown(Keys.W))) && yPos > 0)
                         {
-                            if (gameGrid[xPos, yPos - 1] < (int)CellType.Crate)
+                            if (gameGrid[xPos, yPos - 1] < (int)CellType.WallLeft)
                             {
                                 gameGrid[xPos, yPos] = (int)CellType.Open;
                                 yPos--;
                                 direction = 'N';
-                                HasMoved = true;
                                 CooldownTimer = 0;
                             }
                             else direction = 'N';
+                            HasMoved = true;
                         }
                         else if (((gamePadState.DPad.Down == ButtonState.Pressed && previousGamePadState.DPad.Down != ButtonState.Pressed) ||
                             (keyboardState.IsKeyDown(Keys.Down) && !previousKeyboardState.IsKeyDown(Keys.Down)) ||
                             (keyboardState.IsKeyDown(Keys.S) && !previousKeyboardState.IsKeyDown(Keys.S))) && yPos < 12)
                         {
-                            if (gameGrid[xPos, yPos + 1] < (int)CellType.Crate)
+                            if (gameGrid[xPos, yPos + 1] < (int)CellType.WallLeft)
                             {
                                 gameGrid[xPos, yPos] = (int)CellType.Open;
                                 yPos++;
                                 direction = 'S';
-                                HasMoved = true;
                                 CooldownTimer = 0;
                             }
                             else direction = 'S';
+                            HasMoved = true;
                         }
                         gameGrid[xPos, yPos] = (int)CellType.Slime;
                     }
 
-                    if ((gamePadState.IsButtonDown(Buttons.RightTrigger) && !previousGamePadState.IsButtonDown(Buttons.RightTrigger)) ||
-                        (keyboardState.IsKeyDown(Keys.Space) && !previousKeyboardState.IsKeyDown(Keys.Space)) && CooldownTimer > attackWaitTime)
+                    if (((gamePadState.IsButtonDown(Buttons.RightTrigger) && !previousGamePadState.IsButtonDown(Buttons.RightTrigger)) ||
+                        (keyboardState.IsKeyDown(Keys.Space) && !previousKeyboardState.IsKeyDown(Keys.Space))) && CooldownTimer > attackWaitTime)
                     {
                         hasAttacked = true;
                         attacking = true;

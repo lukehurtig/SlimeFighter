@@ -5,6 +5,8 @@ using Microsoft.Xna.Framework.Audio;
 using System.Runtime.CompilerServices;
 using System.ComponentModel.Design;
 using System;
+using System.Text;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace SlimeFighter.Characters
 {
@@ -14,7 +16,7 @@ namespace SlimeFighter.Characters
         /// Upkeep animation timers and booleans for states
         /// </summary>
         private double animationTimer = 0;
-        private double waitTime = 0.8f;
+        private double waitTime = 0.85f;
         private int animationFrame = 0;
         private int animationIndex = 0;
         private bool attacking = false;
@@ -108,9 +110,9 @@ namespace SlimeFighter.Characters
                 // Basic movement logic towards the player
                 gameGrid[xPos, yPos] = (int)CellType.Open;
 
-                if (Math.Abs(distanceX) > Math.Abs(distanceY))
+                if (Math.Abs(distanceX) >= Math.Abs(distanceY))
                 {
-                    if (distanceX > 1 && xPos < gameGrid.GetLength(0) - 1 && gameGrid[xPos + 1, yPos] != (int)CellType.Slime)
+                    if (distanceX >= 1 && xPos < gameGrid.GetLength(0) - 1 && gameGrid[xPos + 1, yPos] != (int)CellType.Slime)
                     {
                         xPos += 1;  // Move right
                         CooldownTimer = 0;
@@ -128,7 +130,7 @@ namespace SlimeFighter.Characters
                         yPos += 1;  // Move down
                         CooldownTimer = 0;
                     }
-                    else if (distanceY < 1 && yPos > 0 && gameGrid[xPos, yPos - 1] != (int)CellType.Slime)
+                    else if (distanceY <= 1 && yPos > 0 && gameGrid[xPos, yPos - 1] != (int)CellType.Slime)
                     {
                         yPos -= 1;  // Move up
                         CooldownTimer = 0;
@@ -136,11 +138,92 @@ namespace SlimeFighter.Characters
                 }
 
                 gameGrid[xPos, yPos] = (int)CellType.EvilSlime;
-                // Attack if close enough
-                if ((Math.Abs(distanceX) <= attackDistance && Math.Abs(distanceY) <= attackDistance) && !death)
+
+                int xLowerBounds, xUpperBounds, yLowerBounds, yUpperBounds;
+
+                if (xPos < attackDistance) xLowerBounds = 0;
+                else xLowerBounds = xPos - attackDistance;
+
+                if (yPos < attackDistance) yLowerBounds = attackDistance;
+                else yLowerBounds = yPos - attackDistance;
+
+                if ((xPos + attackDistance) > gameGrid.GetLength(0) - 1) xUpperBounds = gameGrid.GetLength(0) - 1;
+                else xUpperBounds = xPos + attackDistance;
+
+                if ((yPos + attackDistance) > gameGrid.GetLength(1) - 1) yUpperBounds = gameGrid.GetLength(1) - 1;
+                else yUpperBounds = yPos + attackDistance;
+
+                if (AttackClass == AttackType.Plus)
                 {
-                    attacking = true;
-                    CooldownTimer = 0;
+                    for (int x = xLowerBounds; x <= xUpperBounds; x++)
+                    {
+                        if (gameGrid[x, yPos] == (int)CellType.Slime)
+                        {
+                            attacking = true;
+                            CooldownTimer = 0;
+                            continue;
+                        }
+                    }
+                    for (int y = yLowerBounds; y <= yUpperBounds; y++)
+                    {
+                        if (gameGrid[xPos, y] == (int)CellType.Slime)
+                        {
+                            attacking = true;
+                            CooldownTimer = 0;
+                            continue;
+                        }
+                    }
+                }
+                else if (AttackClass == AttackType.Radius)
+                {
+                    for (int x = xLowerBounds; x <= xUpperBounds; x++)
+                    {
+                        for (int y = yLowerBounds; y <= yUpperBounds; y++)
+                        {
+                            if (gameGrid[x, y] == (int)CellType.Slime)
+                            {
+                                attacking = true;
+                                CooldownTimer = 0;
+                                continue;
+                            }
+                        }
+                        if (attacking) continue;
+                    }
+                }
+                else
+                {
+                    switch (direction)
+                    {
+                        case 'N':
+                            xLowerBounds = xUpperBounds = xPos;
+                            yUpperBounds = yPos;
+                            break;
+                        case 'W':
+                            xUpperBounds = xPos;
+                            yLowerBounds = yUpperBounds = yPos;
+                            break;
+                        case 'S':
+                            xLowerBounds = xUpperBounds = xPos;
+                            yLowerBounds = yPos;
+                            break;
+                        default:
+                            xLowerBounds = xPos;
+                            yLowerBounds = yUpperBounds = yPos;
+                            break;
+                    }
+
+                    for (int x = xLowerBounds; x <= xUpperBounds; x++)
+                    {
+                        for (int y = yLowerBounds; y <= yUpperBounds; y++)
+                        {
+                            if (gameGrid[x, y] == (int)CellType.Slime)
+                            {
+                                attacking = true;
+                                CooldownTimer = 0;
+                                continue;
+                            }
+                        }
+                    }
                 }
 
                 gameGrid[xPos, yPos] = (int)CellType.EvilSlime;

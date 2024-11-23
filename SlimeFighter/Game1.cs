@@ -70,6 +70,7 @@ namespace SlimeFighter
         private Song lootbox;
         private Song gameOver;
         private SpriteFont spriteFont;
+        private SpriteFont gameOverHeader;
         
         /// <summary>
         /// Input reading variables
@@ -152,6 +153,7 @@ namespace SlimeFighter
             lootbox = Content.Load<Song>("MP3s/LootboxOpening");
             gameOver = Content.Load<Song>("MP3s/GameOver");
             spriteFont = Content.Load<SpriteFont>("Arial");
+            gameOverHeader = Content.Load<SpriteFont>("GameOver");
 
             MediaPlayer.IsRepeating = true;
             MediaPlayer.Play(intro);
@@ -159,6 +161,9 @@ namespace SlimeFighter
 
         protected override void Update(GameTime gameTime)
         {
+            int x = hero.XPos;
+            int y = hero.YPos;
+
             previousGamePadSate = gamePadState;
             previousKeyboardState = keyboardState;
 
@@ -204,10 +209,12 @@ namespace SlimeFighter
                     {
                         _crateHit = true;
                         gameState = state.lootChest;
+                        MediaPlayer.IsRepeating = false;
+                        MediaPlayer.Play(lootbox);
                     }
 
+                    enemySlime.Update(gameTime, ref _gridSpaces, x, y);
                     hero.Update(gameTime, ref _gridSpaces);
-                    enemySlime.Update(gameTime, ref _gridSpaces, hero.XPos, hero.YPos);
 
                     if (enemySlime.Attacking)
                     {
@@ -257,6 +264,12 @@ namespace SlimeFighter
 
                 case state.lootChest:
                     camera.Update(gameTime);
+
+                    if (MediaPlayer.State == MediaState.Stopped)
+                    {
+                        MediaPlayer.IsRepeating = true;
+                        MediaPlayer.Play(gameplay);
+                    }
 
                     if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
@@ -365,7 +378,13 @@ namespace SlimeFighter
             }
             if (gameState == state.gameOver)
             {
+                _spriteBatch2.DrawString(gameOverHeader, "GAME OVER",
+                    new Vector2(_graphics.GraphicsDevice.Viewport.Width * 0.5f - 255,
+                    (_graphics.GraphicsDevice.Viewport.Height * 0.35f) - 20), Color.DarkRed);
 
+                _spriteBatch2.DrawString(spriteFont, "- Press Start or Enter to Return to Menu -\n    - Press Back or Esc to Exit the Game -",
+                    new Vector2(_graphics.GraphicsDevice.Viewport.Width * 0.5f - 304,
+                    (_graphics.GraphicsDevice.Viewport.Height * 0.60f) - 20), Color.LightGoldenrodYellow);
             }
             _spriteBatch2.End();            
 
