@@ -1,5 +1,4 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Audio;
@@ -9,12 +8,13 @@ using System;
 
 namespace SlimeFighter.Characters
 {
-    public class EvilSlime
+    public class EvilSlime : HittableObject
     {
         /// <summary>
         /// Upkeep animation timers and booleans for states
         /// </summary>
         private double animationTimer = 0;
+        private double waitTime = 0.8f;
         private int animationFrame = 0;
         private int animationIndex = 0;
         private bool attacking = false;
@@ -41,6 +41,7 @@ namespace SlimeFighter.Characters
         private SoundEffect deathSound;
         private char direction;
         private SpriteEffects spriteEffect = SpriteEffects.None;
+        public double CooldownTimer = 0;
 
         /// <summary>
         /// Public facing attributes
@@ -56,7 +57,7 @@ namespace SlimeFighter.Characters
         public bool Attacking => attacking;
         public bool Damaged => damaged;
         public char Direction => direction;
-        public bool Death => death;
+        public bool Inactive => death;
         public AttackType AttackClass = AttackType.Plus;
 
         public EvilSlime(int iniPosX, int iniPosY)
@@ -76,8 +77,9 @@ namespace SlimeFighter.Characters
             deathSound = content.Load<SoundEffect>("Death");
         }
 
-        public void Update(GameTime gameTime, ref int[,] gameGrid, Vector2 playerPosition)
+        public void Update(GameTime gameTime, ref int[,] gameGrid, int playerX, int playerY)
         {
+            attacking = false;
             if (death) return;
             if (health <= 0)
             {
@@ -85,45 +87,10 @@ namespace SlimeFighter.Characters
                 death = true;
                 deathSound.Play();
                 gameGrid[xPos, yPos] = (int)CellType.Open;
+                return;
             }
 
-            int playerX = (int)((playerPosition.X - 5) / tileSize);
-            int playerY = (int)((playerPosition.Y - 120) / tileSize);
-
-            // Calculate distance to player
-            int distanceX = playerX - xPos;
-            int distanceY = playerY - yPos;
-            int totalDistance = Math.Abs(distanceX) + Math.Abs(distanceY);
-
-            // Attack if close enough
-            if (totalDistance <= attackDistance && !death)
-            {
-                if (totalDistance >= 1) attacking = true;
-            }
-            else
-            {
-                attacking = false;
-
-                // Basic movement logic towards the player
-                gameGrid[xPos, yPos] = (int)CellType.Open;
-
-                if (Math.Abs(distanceX) > Math.Abs(distanceY))
-                {
-                    if (distanceX > 1 && xPos < gameGrid.GetLength(0) - 1 && gameGrid[xPos + 1, yPos] != 1) xPos += 1;  // Move right
-                    else if (distanceX < 1 && xPos > 0 && gameGrid[xPos - 1, yPos] != 1) xPos -= 1;  // Move left
-                }
-                else
-                {
-                    if (distanceY > 1 && yPos < gameGrid.GetLength(1) - 1 && gameGrid[xPos, yPos + 1] != 1) yPos += 1;  // Move down
-                    else if (distanceY < 1 && yPos > 0 && gameGrid[xPos, yPos - 1] != 1) yPos -= 1;  // Move up
-                }
-
-                gameGrid[xPos, yPos] = (int)CellType.EvilSlime;
-            }
-        }
-
-        public void Draw(GameTime gameTime, SpriteBatch spriteBatch)
-        {
+            CooldownTimer += gameTime.ElapsedGameTime.TotalSeconds;
             // Animation timer for visual effects
             animationTimer += gameTime.ElapsedGameTime.TotalSeconds;
             if (animationTimer > 0.2f)
@@ -132,6 +99,56 @@ namespace SlimeFighter.Characters
                 animationTimer -= 0.2f;
             }
 
+            if (CooldownTimer >= waitTime)
+            {
+                // Calculate distance to player
+                int distanceX = playerX - xPos;
+                int distanceY = playerY - yPos;
+
+                // Basic movement logic towards the player
+                gameGrid[xPos, yPos] = (int)CellType.Open;
+
+                if (Math.Abs(distanceX) > Math.Abs(distanceY))
+                {
+                    if (distanceX > 1 && xPos < gameGrid.GetLength(0) - 1 && gameGrid[xPos + 1, yPos] != (int)CellType.Slime)
+                    {
+                        xPos += 1;  // Move right
+                        CooldownTimer = 0;
+                    }
+                    else if (distanceX < 1 && xPos > 0 && gameGrid[xPos - 1, yPos] != (int)CellType.Slime)
+                    {
+                        xPos -= 1;  // Move left
+                        CooldownTimer = 0;
+                    }
+                }
+                else
+                {
+                    if (distanceY > 1 && yPos < gameGrid.GetLength(1) - 1 && gameGrid[xPos, yPos + 1] != (int)CellType.Slime)
+                    {
+                        yPos += 1;  // Move down
+                        CooldownTimer = 0;
+                    }
+                    else if (distanceY < 1 && yPos > 0 && gameGrid[xPos, yPos - 1] != (int)CellType.Slime)
+                    {
+                        yPos -= 1;  // Move up
+                        CooldownTimer = 0;
+                    }
+                }
+
+                gameGrid[xPos, yPos] = (int)CellType.EvilSlime;
+                // Attack if close enough
+                if ((Math.Abs(distanceX) <= attackDistance && Math.Abs(distanceY) <= attackDistance) && !death)
+                {
+                    attacking = true;
+                    CooldownTimer = 0;
+                }
+
+                gameGrid[xPos, yPos] = (int)CellType.EvilSlime;
+            }
+        }
+
+        public void Draw(GameTime gameTime, SpriteBatch spriteBatch)
+        {
             Rectangle sourceRectangle = attacking
                 ? new Rectangle(animationFrame * 320, (animationIndex + 1) * 320, 320, 320)
                 : new Rectangle(animationFrame * 320, animationIndex * 320, 320, 320);
@@ -154,7 +171,7 @@ namespace SlimeFighter.Characters
             this.attack = newAttack;
             this.attackDistance = 1;
             this.speed = 1;
-            this.scale = 0.1f;
+            this.scale = 0.115f;
             if (xPos <= 13) this.direction = 'E';
             else this.direction = 'W';
             this.death = false;

@@ -9,6 +9,7 @@ using Microsoft.Xna.Framework.Media;
 using System.IO;
 using Microsoft.VisualBasic;
 using SlimeFighter._3DAssets;
+using System.Collections.Generic;
 
 namespace SlimeFighter
 {
@@ -39,6 +40,7 @@ namespace SlimeFighter
         /// The game field representation
         /// </summary>
         private int[,] _gridSpaces = new int[28, 13];
+        private IndicationTile[,] indicationTiles = new IndicationTile[28, 13];
         private static float _tileSize = 32f;
 
         /// <summary>
@@ -50,6 +52,8 @@ namespace SlimeFighter
         private Texture2D potion;
         private Vector2 cratePos = new Vector2((float)(13 * _tileSize) + 30, (float)(6 * _tileSize) + 125);
         private Vector2 cratePos2 = new Vector2((float)(14 * _tileSize) + 30, (float)(7 * _tileSize) + 125);
+        private List<HittableObject> hittableObjects = new List<HittableObject>();
+        
 
         /// <summary>
         /// All the necessary in-game objects probably could export some of these outside the Game class
@@ -63,6 +67,8 @@ namespace SlimeFighter
         private Texture2D HP;
         private Song intro;
         private Song gameplay;
+        private Song lootbox;
+        private Song gameOver;
         private SpriteFont spriteFont;
         
         /// <summary>
@@ -88,6 +94,16 @@ namespace SlimeFighter
 
             // TODO: Add your initialization logic here
             _tilemap = new Tilemap("map.txt");
+
+            for (int i = 0; i < 28; i++)
+            {
+                for (int j = 0; j < 13; j++)
+                {
+                    indicationTiles[i, j] = new IndicationTile();
+                    indicationTiles[i, j].Spawn(i, j);
+                }
+            }
+
             hero = new Slime()
             {
                 Active = true
@@ -121,6 +137,11 @@ namespace SlimeFighter
             crate = new Crate(this, CrateType.Slats, Matrix.Identity);
             camera = new CirclingCamera(this, new Vector3(0, 3, 5), 2f);
 
+            foreach (var tile in indicationTiles)
+            {
+                tile.LoadContent(Content);
+            }
+
             crate2D = Content.Load<Texture2D>("PNGs/Crate");
             potion = Content.Load<Texture2D>("PNGs/Potion");
             title = Content.Load<Texture2D>("PNGs/SlimeLogo");
@@ -128,6 +149,8 @@ namespace SlimeFighter
             HP = Content.Load<Texture2D>("FullHPBar");
             intro = Content.Load<Song>("MP3s/IntroSong");
             gameplay = Content.Load<Song>("MP3s/BeepBox-Song");
+            lootbox = Content.Load<Song>("MP3s/LootboxOpening");
+            gameOver = Content.Load<Song>("MP3s/GameOver");
             spriteFont = Content.Load<SpriteFont>("Arial");
 
             MediaPlayer.IsRepeating = true;
@@ -170,53 +193,33 @@ namespace SlimeFighter
                     break;
 
                 case state.gameLive:
-
-                    /*
-                     * Commented out becuase I am testing my new hit detection function DamageTaken()
-                     * 
-                    if (Vector2.Distance(hero.Position, enemySlime.Position) < 50f && hero.HasMoved && !enemySlime.Death)
-                    {
-                        // Apply damage if both slimes are attacking
-                        if (hero.Attacking && !enemySlime.Attacking)
-                            damageToEnemy = hero.Attack * 2;
-                        else if (!hero.Attacking && enemySlime.Attacking)
-                            damageToHero = enemySlime.Attack * 2;
-                        if (hero.Attacking && enemySlime.Attacking)
-                        {
-                            damageToEnemy = hero.Attack;
-                            damageToHero = enemySlime.Attack;
-                        }
-                    }
-                    */                    
-
-                    if (enemySlime.Death && !_potionCollected && Vector2.Distance(hero.Position, enemySlime.Position) < 10f)
+                    if (enemySlime.Inactive && !_potionCollected && Vector2.Distance(hero.Position, enemySlime.Position) < 10f)
                     {
                         hero.Heal(5);
                         _potionCollected = true;
                     }
 
-                    if (enemySlime.Death && !_crateHit && (Vector2.Distance(hero.Position, cratePos) < 50f ||
+                    if (enemySlime.Inactive && !_crateHit && (Vector2.Distance(hero.Position, cratePos) < 50f ||
                         Vector2.Distance(hero.Position, cratePos2) < 50f) && hero.Attacking)
                     {
                         _crateHit = true;
                         gameState = state.lootChest;
                     }
 
-                    if (hero.HasMoved)
+                    hero.Update(gameTime, ref _gridSpaces);
+                    enemySlime.Update(gameTime, ref _gridSpaces, hero.XPos, hero.YPos);
+
+                    if (enemySlime.Attacking)
                     {
-                        if (enemySlime.Attacking)
-                        {
-                            DamageCheck(enemySlime.XPos, enemySlime.YPos, enemySlime.AttackDistance, enemySlime.Attack, true, enemySlime.AttackClass, enemySlime.Direction);
-                        }
-                        enemySlime.Update(gameTime, ref _gridSpaces, hero.Position);
+                        DamageCheck(enemySlime.XPos, enemySlime.YPos, enemySlime.AttackDistance, enemySlime.Attack, true, enemySlime.AttackClass, enemySlime.Direction);
                     }
-                    if (hero.Attacking)
+
+                    if (hero.HasAttacked)
                     {
                         DamageCheck(hero.XPos, hero.YPos, hero.AttackDistance, hero.Attack, false, hero.AttackClass, hero.Direction);
                     }
-                    hero.Update(gameTime, ref _gridSpaces);
 
-                    if (enemySlime.Death)
+                    if (enemySlime.Inactive)
                     {
                         _gridSpaces[enemySlime.XPos, enemySlime.YPos] = (int)CellType.Potion;
 
@@ -229,6 +232,7 @@ namespace SlimeFighter
                     if (hero.Death)
                     {
                         gameState = state.gameOver;
+                        MediaPlayer.Play(gameOver);
                     }
 
                     if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
@@ -281,10 +285,17 @@ namespace SlimeFighter
                     break;
 
                 case state.gameOver:
-                    gameState = state.titleScreen;
-                    hero.ResetValues();
-                    enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
-                    MediaPlayer.Play(intro);
+                    if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
+                        (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
+                    {
+                        gameState = state.titleScreen;
+                        MediaPlayer.Play(intro);
+                        hero.ResetValues();
+                        enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
+                    }
+                    if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
+                        (keyboardState.IsKeyDown(Keys.Escape)) && !previousKeyboardState.IsKeyDown(Keys.Escape))
+                        Exit();
                     break;
 
                 default:
@@ -306,7 +317,12 @@ namespace SlimeFighter
             _tilemap.Draw(gameTime, _spriteBatch);
             if (gameState > state.tutorial)
             {
-                if (enemySlime.Death)
+                foreach(IndicationTile tile in indicationTiles)
+                {
+                    tile.Draw(gameTime, _spriteBatch);
+                }
+
+                if (enemySlime.Inactive)
                 {
                     if (!_potionCollected) _spriteBatch.Draw(potion, enemySlime.Position, Color.White);
                     if (!_crateHit) _spriteBatch.Draw(crate2D, cratePos, Color.White);
@@ -346,6 +362,10 @@ namespace SlimeFighter
                 crate.Draw(camera);
                 _spriteBatch2.DrawString(spriteFont, "- This game is still a Work in Progress\n I intend to make it so each crate destroyed\n upgrades the player through stats,\n abilities or attack types.\n- Also more enemies to come with\n varied spawns and ammounts\n- Also AI could use a little work, but solid start\n\n   - Press Enter or Start to Return to Menu -\n   - Or Press ESC or Back to Exit the Game -",
                     new Vector2(75, 60), Color.LightGoldenrodYellow);
+            }
+            if (gameState == state.gameOver)
+            {
+
             }
             _spriteBatch2.End();            
 
@@ -396,14 +416,27 @@ namespace SlimeFighter
                         {
                             if (enemy)
                             {
-                                if (_gridSpaces[x, y] == (int)CellType.Slime) hero.TakeDamage(damage);
+                                if (_gridSpaces[x, y] == (int)CellType.Slime)
+                                {
+                                    indicationTiles[x, y].Activate(CellType.HitIndicator);
+                                    hero.TakeDamage(damage);
+                                }
+                                else if (x != xCord || y != yCord)
+                                {
+                                    indicationTiles[x, y].Activate(CellType.EnemyIndicator);
+                                }
                             }
                             /*
                             * TODO: Need to change once I add more than one enemy
                             */
                             else if (_gridSpaces[x, y] >= (int)CellType.EvilSlime)
                             {
+                                indicationTiles[x, y].Activate(CellType.HitIndicator);
                                 enemySlime.TakeDamage(damage);
+                            }
+                            else if (x != xCord || y != yCord)
+                            {
+                                indicationTiles[x, y].Activate(CellType.HeroIndicator);
                             }
                         }
                     }
@@ -414,28 +447,48 @@ namespace SlimeFighter
                     {
                         if (enemy)
                         {
-                            if (_gridSpaces[x, yCord] == (int)CellType.Slime) hero.TakeDamage(damage);
+                            if (_gridSpaces[x, yCord] == (int)CellType.Slime)
+                            {
+                                indicationTiles[x, yCord].Activate(CellType.HitIndicator);
+                                hero.TakeDamage(damage);
+                            }
+                            else if (x != xCord) indicationTiles[x, yCord].Activate(CellType.EnemyIndicator);
                         }
                         /*
                         * TODO: Need to change once I add more than one enemy
                         */
                         else if (_gridSpaces[x, yCord] >= (int)CellType.EvilSlime)
-                        {                            
+                        {
+                            indicationTiles[x, yCord].Activate(CellType.HitIndicator);
                             enemySlime.TakeDamage(damage);
+                        }
+                        else if (x != xCord)
+                        {
+                            indicationTiles[x, yCord].Activate(CellType.HeroIndicator);
                         }
                     }
                     for (int y = yLowerBounds; y <= yUpperBounds; y++)
                     {
                         if (enemy)
                         {
-                            if (_gridSpaces[xCord, y] == (int)CellType.Slime) hero.TakeDamage(damage);
+                            if (_gridSpaces[xCord, y] == (int)CellType.Slime)
+                            {
+                                indicationTiles[xCord, y].Activate(CellType.HitIndicator);
+                                hero.TakeDamage(damage);
+                            }
+                            else if (y != yCord) indicationTiles[xCord, y].Activate(CellType.EnemyIndicator);
                         }
                         /*
                         * TODO: Need to change once I add more than one enemy
                         */
                         else if (_gridSpaces[xCord, y] >= (int)CellType.EvilSlime)
-                        {                            
+                        {
+                            indicationTiles[xCord, y].Activate(CellType.HitIndicator);
                             enemySlime.TakeDamage(damage);
+                        }
+                        else if (y != yCord)
+                        {
+                            indicationTiles[xCord, y].Activate(CellType.HeroIndicator);
                         }
                     }
                     break;
@@ -446,16 +499,32 @@ namespace SlimeFighter
                         switch (dir)
                         {
                             case 'N':
-                                if (_gridSpaces[xCord, yCord + range] == (int)CellType.Slime) hero.TakeDamage(damage);
+                                if (_gridSpaces[xCord, yCord + range] == (int)CellType.Slime)
+                                {
+                                    indicationTiles[xCord, yCord + range].Activate(CellType.HitIndicator);
+                                    hero.TakeDamage(damage);
+                                }
                                 break;
                             case 'W':
-                                if (_gridSpaces[xCord - range, yCord] == (int)CellType.Slime) hero.TakeDamage(damage);
+                                if (_gridSpaces[xCord - range, yCord] == (int)CellType.Slime)
+                                {
+                                    indicationTiles[xCord - range, yCord].Activate(CellType.HitIndicator);
+                                    hero.TakeDamage(damage);
+                                }
                                 break;
                             case 'S':
-                                if (_gridSpaces[xCord, yCord - range] == (int)CellType.Slime) hero.TakeDamage(damage);
+                                if (_gridSpaces[xCord, yCord - range] == (int)CellType.Slime)
+                                {
+                                    indicationTiles[xCord, yCord - range].Activate(CellType.HitIndicator);
+                                    hero.TakeDamage(damage);
+                                }
                                 break;
                             default:
-                                if (_gridSpaces[xCord + range, yCord] == (int)CellType.Slime) hero.TakeDamage(damage);
+                                if (_gridSpaces[xCord + range, yCord] == (int)CellType.Slime)
+                                {
+                                    indicationTiles[xCord + range, yCord].Activate(CellType.HitIndicator);
+                                    hero.TakeDamage(damage);
+                                }
                                 break;
                         }
                     }
@@ -465,6 +534,7 @@ namespace SlimeFighter
                      */
                     else if (_gridSpaces[xCord, yCord] >= (int)CellType.EvilSlime)
                     {
+                        indicationTiles[xCord, yCord].Activate(CellType.HitIndicator);
                         enemySlime.TakeDamage(damage);
                     }
                     break;
@@ -478,8 +548,13 @@ namespace SlimeFighter
                             {
                                 if (_gridSpaces[x, y] == (int)CellType.Slime && !hero.Damaged)
                                 {
+                                    indicationTiles[x, y].Activate(CellType.HitIndicator);
                                     hero.TakeDamage(damage);
                                     DamageCheck(x, y, 1, damage / 2, true, AttackType.Shock);
+                                }
+                                else if (x != xCord || y != yCord)
+                                {
+                                    indicationTiles[x, y].Activate(CellType.EnemyIndicator);
                                 }
                             }
                             /*
@@ -488,8 +563,13 @@ namespace SlimeFighter
                             */
                             else if (_gridSpaces[x, y] >= (int)CellType.EvilSlime && !enemySlime.Damaged)
                             {
+                                indicationTiles[x, y].Activate(CellType.HitIndicator);
                                 enemySlime.TakeDamage(damage);
                                 DamageCheck(x, y, 1, damage / 2, false, AttackType.Shock);
+                            }
+                            else if (x != xCord || y != yCord)
+                            {
+                                indicationTiles[x, y].Activate(CellType.HeroIndicator);
                             }
                         }
                     }
@@ -502,14 +582,27 @@ namespace SlimeFighter
                         {
                             if (enemy)
                             {
-                                if (_gridSpaces[x, y] == (int)CellType.Slime) hero.TakeDamage(damage);
+                                if (_gridSpaces[x, y] == (int)CellType.Slime)
+                                {
+                                    indicationTiles[x, y].Activate(CellType.HitIndicator);
+                                    hero.TakeDamage(damage);
+                                }
+                                else if (x != xCord || y != yCord)
+                                {
+                                    indicationTiles[x, y].Activate(CellType.EnemyIndicator);
+                                }
                             }
                             /*
                             * TODO: Need to change once I add more than one enemy
                             */
                             else if (_gridSpaces[x, y] >= (int)CellType.EvilSlime)
                             {
+                                indicationTiles[x, y].Activate(CellType.HitIndicator);
                                 enemySlime.TakeDamage(damage);
+                            }
+                            else if (x != xCord || y != yCord)
+                            {
+                                indicationTiles[x, y].Activate(CellType.HeroIndicator);
                             }
                         }
                     }                    

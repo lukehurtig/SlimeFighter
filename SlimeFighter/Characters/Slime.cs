@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Content;
 using Microsoft.Xna.Framework.Audio;
 using System.Runtime.CompilerServices;
 using System.ComponentModel.Design;
+using System;
 
 namespace SlimeFighter.Characters
 {
@@ -14,13 +15,20 @@ namespace SlimeFighter.Characters
         /// Upkeep animation timers and booleans for states
         /// </summary>
         private double animationTimer = 0;
+        private double moveWaitTime;
+        private double attackWaitTime;
         private int animationFrame = 0;
         private int animationIndex = 0;
         private bool attacking = false;
+        private bool hasAttacked = false;
         private bool damaged = false;
         private bool death = false;
         private float scale = 0.13f;
-        private float tileSize = 32f;
+        private static readonly float tileSize = 32f;
+        private static readonly int MAX_SPEED = 25;
+        private static readonly int MAX_ATTACK = 25;
+        private static readonly int MAX_HP = 250;
+        private static readonly int MAX_RANGE = 5;
 
         /// <summary>
         /// Attributes of the character
@@ -29,6 +37,7 @@ namespace SlimeFighter.Characters
         private int maxHealth;
         private int attack;
         private int attackDistance;
+        private int attackSpeed;
         private int speed;
 
         /// <summary>
@@ -54,9 +63,11 @@ namespace SlimeFighter.Characters
         public int MaxHealth => maxHealth;
         public int Attack => attack;
         public int AttackDistance => attackDistance;
+        public bool HasAttacked => hasAttacked;
         public bool Attacking => attacking;
         public bool Damaged => damaged;
         public char Direction => direction;
+        public double CooldownTimer = 0;
         public AttackType AttackClass = AttackType.StraightAhead;
         public bool Death = false;
         public bool Active = false;
@@ -69,6 +80,9 @@ namespace SlimeFighter.Characters
             this.attack = 2;
             this.attackDistance = 1;
             this.speed = 1;
+            this.attackSpeed = 1;
+            this.moveWaitTime = 0.52f - (float)(speed * 0.02f);
+            this.attackWaitTime = 0.52f - (float)(speed * 0.02f);
             this.direction = 'E';
         }
 
@@ -80,8 +94,10 @@ namespace SlimeFighter.Characters
 
         public void Update(GameTime gameTime, ref int[,] gameGrid)
         {
+            hasAttacked = false;
             HasMoved = false;
             animationTimer += gameTime.ElapsedGameTime.TotalSeconds;
+            CooldownTimer += gameTime.ElapsedGameTime.TotalSeconds;
 
             if (animationTimer > 0.2f)
             {
@@ -94,7 +110,7 @@ namespace SlimeFighter.Characters
                 }
 
                 animationTimer -= 0.2f;
-            }
+            }            
             
             if (Active && !death)
             {
@@ -105,71 +121,87 @@ namespace SlimeFighter.Characters
                 gamePadState = GamePad.GetState(PlayerIndex.One);
                 keyboardState = Keyboard.GetState();
 
-                if (!attacking && !damaged)
+                if (!HasMoved)
                 {
-                    if (((gamePadState.DPad.Right == ButtonState.Pressed && previousGamePadState.DPad.Right != ButtonState.Pressed) ||
-                    (keyboardState.IsKeyDown(Keys.Right) && !previousKeyboardState.IsKeyDown(Keys.Right)) ||
-                    (keyboardState.IsKeyDown(Keys.D) && !previousKeyboardState.IsKeyDown(Keys.D))) && xPos < 27)
+                    if (!attacking && CooldownTimer > moveWaitTime)
                     {
-                        if (gameGrid[xPos + 1, yPos] < (int)CellType.Crate)
+                        if (((gamePadState.DPad.Right == ButtonState.Pressed && previousGamePadState.DPad.Right != ButtonState.Pressed) ||
+                        (keyboardState.IsKeyDown(Keys.Right) && !previousKeyboardState.IsKeyDown(Keys.Right)) ||
+                        (keyboardState.IsKeyDown(Keys.D) && !previousKeyboardState.IsKeyDown(Keys.D))) && xPos < 27)
                         {
-                            gameGrid[xPos, yPos] = (int)CellType.Open;
-                            xPos++;
-                            direction = 'E';
-                            HasMoved = true;
+                            if (gameGrid[xPos + 1, yPos] < (int)CellType.Crate)
+                            {
+                                gameGrid[xPos, yPos] = (int)CellType.Open;
+                                xPos++;
+                                direction = 'E';
+                                HasMoved = true;
+                                CooldownTimer = 0;
+                            }
+                            else direction = 'E';
                         }
-                        else direction = 'E';
+                        else if (((gamePadState.DPad.Left == ButtonState.Pressed && previousGamePadState.DPad.Left != ButtonState.Pressed) ||
+                            (keyboardState.IsKeyDown(Keys.Left) && !previousKeyboardState.IsKeyDown(Keys.Left)) ||
+                            (keyboardState.IsKeyDown(Keys.A) && !previousKeyboardState.IsKeyDown(Keys.A))) && xPos > 0)
+                        {
+                            if (gameGrid[xPos - 1, yPos] < (int)CellType.Crate)
+                            {
+                                gameGrid[xPos, yPos] = (int)CellType.Open;
+                                xPos--;
+                                direction = 'W';
+                                HasMoved = true;
+                                CooldownTimer = 0;
+                            }
+                            else direction = 'W';
+                        }
+                        else if (((gamePadState.DPad.Up == ButtonState.Pressed && previousGamePadState.DPad.Up != ButtonState.Pressed) ||
+                            (keyboardState.IsKeyDown(Keys.Up) && !previousKeyboardState.IsKeyDown(Keys.Up)) ||
+                            (keyboardState.IsKeyDown(Keys.W) && !previousKeyboardState.IsKeyDown(Keys.W))) && yPos > 0)
+                        {
+                            if (gameGrid[xPos, yPos - 1] < (int)CellType.Crate)
+                            {
+                                gameGrid[xPos, yPos] = (int)CellType.Open;
+                                yPos--;
+                                direction = 'N';
+                                HasMoved = true;
+                                CooldownTimer = 0;
+                            }
+                            else direction = 'N';
+                        }
+                        else if (((gamePadState.DPad.Down == ButtonState.Pressed && previousGamePadState.DPad.Down != ButtonState.Pressed) ||
+                            (keyboardState.IsKeyDown(Keys.Down) && !previousKeyboardState.IsKeyDown(Keys.Down)) ||
+                            (keyboardState.IsKeyDown(Keys.S) && !previousKeyboardState.IsKeyDown(Keys.S))) && yPos < 12)
+                        {
+                            if (gameGrid[xPos, yPos + 1] < (int)CellType.Crate)
+                            {
+                                gameGrid[xPos, yPos] = (int)CellType.Open;
+                                yPos++;
+                                direction = 'S';
+                                HasMoved = true;
+                                CooldownTimer = 0;
+                            }
+                            else direction = 'S';
+                        }
+                        gameGrid[xPos, yPos] = (int)CellType.Slime;
                     }
-                    else if (((gamePadState.DPad.Left == ButtonState.Pressed && previousGamePadState.DPad.Left != ButtonState.Pressed) ||
-                        (keyboardState.IsKeyDown(Keys.Left) && !previousKeyboardState.IsKeyDown(Keys.Left)) ||
-                        (keyboardState.IsKeyDown(Keys.A) && !previousKeyboardState.IsKeyDown(Keys.A))) && xPos > 0)
+
+                    if ((gamePadState.IsButtonDown(Buttons.RightTrigger) && !previousGamePadState.IsButtonDown(Buttons.RightTrigger)) ||
+                        (keyboardState.IsKeyDown(Keys.Space) && !previousKeyboardState.IsKeyDown(Keys.Space)) && CooldownTimer > attackWaitTime)
                     {
-                        if (gameGrid[xPos - 1, yPos] < (int)CellType.Crate)
-                        {
-                            gameGrid[xPos, yPos] = (int)CellType.Open;
-                            xPos--;
-                            direction = 'W';
-                            HasMoved = true;
-                        }
-                        else direction = 'W';
+                        hasAttacked = true;
+                        attacking = true;
+                        animationFrame = 0;
+                        HasMoved = true;
+                        CooldownTimer = 0;
                     }
-                    else if (((gamePadState.DPad.Up == ButtonState.Pressed && previousGamePadState.DPad.Up != ButtonState.Pressed) ||
-                        (keyboardState.IsKeyDown(Keys.Up) && !previousKeyboardState.IsKeyDown(Keys.Up)) ||
-                        (keyboardState.IsKeyDown(Keys.W) && !previousKeyboardState.IsKeyDown(Keys.W))) && yPos > 0)
-                    {
-                        if (gameGrid[xPos, yPos - 1] < (int)CellType.Crate)
-                        {
-                            gameGrid[xPos, yPos] = (int)CellType.Open;
-                            yPos--;
-                            direction = 'N';
-                            HasMoved = true;
-                        }
-                        else direction = 'N';
-                    }
-                    else if (((gamePadState.DPad.Down == ButtonState.Pressed && previousGamePadState.DPad.Down != ButtonState.Pressed) ||
-                        (keyboardState.IsKeyDown(Keys.Down) && !previousKeyboardState.IsKeyDown(Keys.Down)) ||
-                        (keyboardState.IsKeyDown(Keys.S) && !previousKeyboardState.IsKeyDown(Keys.S))) && yPos < 12)
-                    {
-                        if (gameGrid[xPos, yPos + 1] < (int)CellType.Crate)
-                        {
-                            gameGrid[xPos, yPos] = (int)CellType.Open;
-                            yPos++;
-                            direction = 'S';
-                            HasMoved = true;
-                        }
-                        else direction = 'S';
-                    }
-                    gameGrid[xPos, yPos] = (int)CellType.Slime;
+                    #endregion Input Handling
                 }
 
-                if ((gamePadState.IsButtonDown(Buttons.RightTrigger) && !previousGamePadState.IsButtonDown(Buttons.RightTrigger)) ||
-                    (keyboardState.IsKeyDown(Keys.Space) && !previousKeyboardState.IsKeyDown(Keys.Space)))
+                if (health <= 0 && !death)
                 {
-                    attacking = true;
-                    animationFrame = 0;
-                    HasMoved = true;
+                    deathSound.Play();
+                    animationIndex = 0;
+                    death = true;
                 }
-                #endregion Input Handling
             }
         }
 
@@ -226,18 +258,57 @@ namespace SlimeFighter.Characters
         {
             damaged = true;
             animationFrame = 0;
+            health -= amount;
+        }
 
-            if (health - amount < 0)
+        public bool IncreaseStat(string stat, int amount, AttackType attackType)
+        {
+            switch (stat)
             {
-                health = 0;
-                death = true;
-                deathSound.Play();
-                animationIndex = 0;
+                case "Attack":
+                    if (attack < MAX_ATTACK)
+                    {
+                        attack += amount;
+                        return true;
+                    }
+                    return false;
+
+                case "HP":
+                    if (health < MAX_HP)
+                    {
+                        health += amount;
+                        return true;
+                    }
+                    return false;
+
+                case "Speed":
+                    if (speed < MAX_SPEED)
+                    {
+                        speed += amount;
+                        return true;
+                    }
+                    return false;
+
+                case "Range":
+                    if (attackDistance < MAX_RANGE)
+                    {
+                        attackDistance += amount;
+                        return true;
+                    }
+                    return false;
+
+                case "Class":
+                    AttackClass = attackType;
+                    
+                    if (amount > 0)
+                    {
+                        attackDistance = amount;
+                    }
+
+                    return true;
             }
-            else
-            {
-                health -= amount;
-            }
+
+            return false;
         }
     }
 }
