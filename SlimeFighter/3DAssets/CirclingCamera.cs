@@ -73,5 +73,15 @@ namespace SlimeFighter._3DAssets
                 Matrix.CreateRotationY(angle) *
                 Matrix.CreateLookAt(position, Vector3.Zero, Vector3.Up);
         }
+
+        public void MoveYPosition(float yValue)
+        {
+            if(this.position.Y < 800) this.position.Y -= yValue;
+        }
+
+        public void SetPosition(Vector3 pos)
+        {
+            this.position = pos;
+        }
     }
 }

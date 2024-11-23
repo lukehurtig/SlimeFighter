@@ -48,10 +48,14 @@ namespace SlimeFighter
         /// </summary>
         private bool _crateHit = false;
         private bool _potionCollected = false;
+        private bool _lootScreenTransition = false;
+        private string lootScreenStatText = string.Empty;
         private Texture2D crate2D;
         private Texture2D potion;
         private Vector2 cratePos = new Vector2((float)(13 * _tileSize) + 30, (float)(6 * _tileSize) + 125);
         private Vector2 cratePos2 = new Vector2((float)(14 * _tileSize) + 30, (float)(7 * _tileSize) + 125);
+        private Vector3 cameraStartPosition = new Vector3(0, 3, 5);
+        private float completeTextPos = -50f;
         private List<HittableObject> hittableObjects = new List<HittableObject>();
         
 
@@ -65,6 +69,7 @@ namespace SlimeFighter
         private Texture2D title;
         private Texture2D baseHP;
         private Texture2D HP;
+        private Texture2D clock;
         private Song intro;
         private Song gameplay;
         private Song lootbox;
@@ -148,6 +153,7 @@ namespace SlimeFighter
             title = Content.Load<Texture2D>("PNGs/SlimeLogo");
             baseHP = Content.Load<Texture2D>("EmptyHPBar");
             HP = Content.Load<Texture2D>("FullHPBar");
+            clock = Content.Load<Texture2D>("PNGs/TickingClock");
             intro = Content.Load<Song>("MP3s/IntroSong");
             gameplay = Content.Load<Song>("MP3s/BeepBox-Song");
             lootbox = Content.Load<Song>("MP3s/LootboxOpening");
@@ -269,28 +275,46 @@ namespace SlimeFighter
                     {
                         MediaPlayer.IsRepeating = true;
                         MediaPlayer.Play(gameplay);
-                    }
+                        string attribute;
+                        int value;
+                        (attribute, value) = RandomizeAttributes();
 
-                    if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
-                        (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
-                    {
+                        hero.IncreaseStat(attribute, value, AttackType.StraightAhead);
+                        lootScreenStatText = $"{attribute} was increase by {value}!";
+
+                        _lootScreenTransition = true;
+
                         // Temp variables to get game running
-                        _crateHit = false;
-                        _potionCollected = false;
                         _gridSpaces[13, 6] = (int)CellType.Open;
                         _gridSpaces[13, 7] = (int)CellType.Open;
                         _gridSpaces[14, 6] = (int)CellType.Open;
                         _gridSpaces[14, 7] = (int)CellType.Open;
-
-                        gameState = state.titleScreen;
-                        hero.ResetValues();
-                        enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
-                        MediaPlayer.Play(intro);
                     }
 
-                    if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
+                    if (_lootScreenTransition)
+                    {
+                        if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
+                        (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter) && MediaPlayer.IsRepeating == true)
+                        {
+                            enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
+                            _crateHit = false;
+                            _potionCollected = false;
+                            camera.SetPosition(cameraStartPosition);
+                            gameState = state.gameLive;
+                        }
+
+                        if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Escape)) && !previousKeyboardState.IsKeyDown(Keys.Escape))
-                        Exit();
+                        {
+                            gameState = state.titleScreen;
+                            _crateHit = false;
+                            _potionCollected = false;
+                            hero.ResetValues();
+                            enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
+                            camera.SetPosition(cameraStartPosition);
+                            MediaPlayer.Play(intro);
+                        }
+                    }
                     break;
 
                 case state.transition:
@@ -373,8 +397,35 @@ namespace SlimeFighter
             if (gameState == state.lootChest)
             {
                 crate.Draw(camera);
-                _spriteBatch2.DrawString(spriteFont, "- This game is still a Work in Progress\n I intend to make it so each crate destroyed\n upgrades the player through stats,\n abilities or attack types.\n- Also more enemies to come with\n varied spawns and ammounts\n- Also AI could use a little work, but solid start\n\n   - Press Enter or Start to Return to Menu -\n   - Or Press ESC or Back to Exit the Game -",
-                    new Vector2(75, 60), Color.LightGoldenrodYellow);
+                //_spriteBatch2.DrawString(spriteFont, "- This game is still a Work in Progress\n I intend to make it so each crate destroyed\n upgrades the player through stats,\n abilities or attack types.\n- Also more enemies to come with\n varied spawns and ammounts\n- Also AI could use a little work, but solid start\n\n   - Press Enter or Start to Return to Menu -\n   - Or Press ESC or Back to Exit the Game -",
+                //   new Vector2(75, 60), Color.LightGoldenrodYellow);
+                if (MediaPlayer.IsRepeating == false)
+                {
+                    if (completeTextPos <= _graphics.GraphicsDevice.Viewport.Height * 0.5f - 20) completeTextPos += 5;
+
+                    _spriteBatch2.DrawString(gameOverHeader, "Round Complete",
+                        new Vector2(_graphics.GraphicsDevice.Viewport.Width * 0.5f - 330,
+                        (completeTextPos)), Color.ForestGreen);
+                }
+                else
+                {
+                    camera.MoveYPosition(15);
+
+                    if (_lootScreenTransition)
+                    {
+                        _spriteBatch2.DrawString(spriteFont, $"HP: {hero.MaxHealth}\nAttack: {hero.Attack}\nSpeed: {hero.Speed}\nAttack Distance: {hero.AttackDistance}",
+                        new Vector2(_graphics.GraphicsDevice.Viewport.Width * 0.14f,
+                        (_graphics.GraphicsDevice.Viewport.Height * 0.3f) - 20), Color.LightGoldenrodYellow);
+
+                        _spriteBatch2.DrawString(spriteFont, lootScreenStatText,
+                        new Vector2(_graphics.GraphicsDevice.Viewport.Width * 0.52f - 304,
+                        (_graphics.GraphicsDevice.Viewport.Height * 0.62f) - 20), Color.DarkGoldenrod);
+
+                        _spriteBatch2.DrawString(spriteFont, "- Press Start or Enter to Continue Game -\n  - Press Back or Esc to Exit to the Menu -",
+                        new Vector2(_graphics.GraphicsDevice.Viewport.Width * 0.5f - 304,
+                        (_graphics.GraphicsDevice.Viewport.Height * 0.73f) - 20), Color.Firebrick);
+                    }
+                }
             }
             if (gameState == state.gameOver)
             {
@@ -635,6 +686,30 @@ namespace SlimeFighter
                     break;
             }
             return false;
+        }
+
+        /// <summary>
+        /// This function is purely temporary to fulfill gameplay loop by giving random stat increase, I will replace with a better loot table styled version in the future
+        /// </summary>
+        // Function to randomize and return a dictionary of attributes and their values
+        public (string attribute, int amount) RandomizeAttributes()
+        {
+            // Attributes to randomize
+            string[] attributes = { "Attack", "HP", "Speed", "Range"};
+
+            // Choose a random attribute
+            string selectedAttribute = attributes[_random.Next(attributes.Length)];
+
+            // Generate a random amount between 1 and 2
+            int amount = _random.Next(1, 3);
+
+            if (selectedAttribute == "HP")
+            {
+                amount *= 2;
+            }
+
+            // Return the selected attribute and the random amount
+            return (selectedAttribute, amount);
         }
     }
 }

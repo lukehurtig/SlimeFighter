@@ -5,5 +5,5 @@
 Jellee Font created by Hanken Design Co. under the SIL Open Font License (OFL) (https://openfontlicense.org/)
 
 All other assets belong to Lukas Hurtig being:
-Crate.png, Potion.png, SlimeCharacter(WithAlpha).png, SlimeLogo.png, EmptyHPBar.png, FullHPBar.png,
-Death.wav, Jump.Wav, KnockDown.wav, Powerup.wav, IntroSong.mp3, & BeepBox-Song.mp3
+Crate.png, Potion.png, SlimeCharacter(WithAlpha).png, SlimeLogo.png, EmptyHPBar.png, FullHPBar.png, TileIndicator.png,
+TickingClock.png, Death.wav, Jump.Wav, KnockDown.wav, Powerup.wav, IntroSong.mp3, BeepBox-Song.mp3, LootboxOpening.mp3, & GameOver.mp3

@@ -62,11 +62,13 @@ namespace SlimeFighter.Characters
         public int Health => health;
         public int MaxHealth => maxHealth;
         public int Attack => attack;
+        public int Speed => speed;
         public int AttackDistance => attackDistance;
         public bool HasAttacked => hasAttacked;
         public bool Attacking => attacking;
         public bool Damaged => damaged;
         public char Direction => direction;
+        public double MoveWaitTime => moveWaitTime;
         public double CooldownTimer = 0;
         public AttackType AttackClass = AttackType.StraightAhead;
         public bool Death = false;
@@ -276,7 +278,9 @@ namespace SlimeFighter.Characters
                 case "HP":
                     if (health < MAX_HP)
                     {
-                        health += amount;
+                        if (health + amount > maxHealth) health = maxHealth;
+                        else health += amount;
+                        maxHealth += amount;
                         return true;
                     }
                     return false;
