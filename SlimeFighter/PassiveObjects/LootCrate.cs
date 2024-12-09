@@ -11,7 +11,7 @@ namespace SlimeFighter.PassiveObjects
     public class LootCrate : HittableObject
     {
         private static readonly int _tileSize = 32;
-        private bool _crateHit;
+        private bool _inactive;
 
         // A bool to indicate true if 1 tile sized and false for 2x2 tile sized crate
         private readonly bool _crateSmall;
@@ -30,7 +30,7 @@ namespace SlimeFighter.PassiveObjects
         public Vector2 Position => position;
 
         // A bool to indicate whether the crate is spawned or not
-        public bool Inactive => _crateHit;
+        public bool Inactive => _inactive;
 
         /// <summary>
         /// Constructor for the crate object
@@ -46,7 +46,7 @@ namespace SlimeFighter.PassiveObjects
             {
                 scale = 1.0f;
             }
-            _crateHit = false;
+            _inactive = true;
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace SlimeFighter.PassiveObjects
                         {
                             spawned = true;
                             // Start drawing the crate
-                            _crateHit = false;
+                            _inactive = false;
                             // Set the coords to type Crate
                             grid[i, j] = (int)CellType.Crate;
                             // Position the crate
@@ -99,11 +99,11 @@ namespace SlimeFighter.PassiveObjects
                         }
                         // Checking to see if current coordinates in a square down to the right of i & j are spawnable for a 2x2 crate
                         else if (grid[i, j] == (int)CellType.Open && grid[i + 1, j] == (int)CellType.Open &&
-                            grid[i, j +1 ] == (int)CellType.Open && grid[i + 1, j + 1] == (int)CellType.Open)
+                            grid[i, j + 1] == (int)CellType.Open && grid[i + 1, j + 1] == (int)CellType.Open)
                         {
                             spawned = true;
                             // Start drawing the crate
-                            _crateHit = false;
+                            _inactive = false;
                             // Set the coords to type Crate
                             grid[i, j] = (int)CellType.Crate;
                             grid[i, j + 1] = (int)CellType.Crate;
@@ -142,7 +142,7 @@ namespace SlimeFighter.PassiveObjects
 
         public void Draw(GameTime gameTime, SpriteBatch spriteBatch)
         {
-            if (!_crateHit)
+            if (!_inactive)
             {
                 spriteBatch.Draw(texture, Position, new Rectangle(0, 0, 64, 64),
                 Color.White, 0, new Vector2(0, 0), scale, SpriteEffects.None, 0);
@@ -157,7 +157,7 @@ namespace SlimeFighter.PassiveObjects
         {
             if (damage > 0)
             {
-                _crateHit = true;
+                _inactive = true;
                 hitSound.Play();
             }
         }
