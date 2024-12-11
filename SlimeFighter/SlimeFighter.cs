@@ -12,6 +12,9 @@ using SlimeFighter._3DAssets;
 using System.Collections.Generic;
 using SlimeFighter.PassiveObjects;
 using System.Reflection.Metadata.Ecma335;
+using Microsoft.Xna.Framework.Content;
+using Microsoft.Xna.Framework.Audio;
+using SlimeFighter.Generation;
 
 namespace SlimeFighter
 {
@@ -26,16 +29,18 @@ namespace SlimeFighter
         gameOver
     }
 
-    public class Game1 : Game
+    public class SlimeFighter : Game
     {
         /// <summary>
         /// Objects and booleans used to get the game running
         /// </summary>
-        private Random _random = new Random();
+        //private Random _randomSeed = new Random();
+        //private Random _random = new Random();
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
         private SpriteBatch _spriteBatch2;
         private Tilemap _tilemap;
+        private ObjectGeneration objectGeneration;
         private state gameState;
 
         /// <summary>
@@ -46,15 +51,17 @@ namespace SlimeFighter
         private static float _tileSize = 32f;
 
         /// <summary>
-        /// Need to make classes for these objects just had to patch over to finish
+        /// Upkeep variables such as reset values, flags, and counts
         /// </summary>
         private bool _crateHit = false;
-        private bool _potionCollected = false;
         private bool _lootScreenTransition = false;
         private string lootScreenStatText = string.Empty;
-        private Texture2D potion;
         private Vector3 cameraStartPosition = new Vector3(0, 3, 5);
+        private int round = 0;
+        private int enemySlimesCount = 0;
+        private int clockAnimationFrame = 0;
         private float completeTextPos = -50f;
+        private float clockAnimationTimer = 0;
 
         /// <summary>
         /// All the necessary in-game objects probably could export some of these outside the Game class
@@ -64,13 +71,16 @@ namespace SlimeFighter
         private Crate crate;
         private CirclingCamera camera;
         private LootCrate mainCrate;
+        private Texture2D potion;
         private Texture2D title;
         private Texture2D baseHP;
         private Texture2D HP;
         private Texture2D clock;
+        private SoundEffect heal;
         private Song intro;
         private Song gameplay;
         private Song lootbox;
+        private Song selectionScreen;
         private Song gameOver;
         private SpriteFont spriteFont;
         private SpriteFont gameOverHeader;
@@ -80,7 +90,6 @@ namespace SlimeFighter
         /// </summary>
         private List<LootCrate> lootCrates = new List<LootCrate>();
         private List<Potion> potions = new List<Potion>();
-        private int numberOfEnemySlimes = 0;
         private EvilSlime[] enemySlimes = new EvilSlime[20];
         private List<HittableObject> hittableObjects = new List<HittableObject>();
 
@@ -92,7 +101,7 @@ namespace SlimeFighter
         private GamePadState gamePadState;
         private GamePadState previousGamePadSate;
 
-        public Game1()
+        public SlimeFighter()
         {
             _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
@@ -101,12 +110,10 @@ namespace SlimeFighter
 
         protected override void Initialize()
         {
-            int x = _random.Next(27);
-            int y = _random.Next(12);
             gameState = state.titleScreen;
 
-            // TODO: Add your initialization logic here
             _tilemap = new Tilemap("map.txt");
+            objectGeneration = new ObjectGeneration();
 
             for (int i = 0; i < 28; i++)
             {
@@ -117,21 +124,23 @@ namespace SlimeFighter
                 }
             }
 
+            for (int i = 0; i < enemySlimes.Length; i++)
+            {
+                enemySlimes[i] = new EvilSlime();
+            }
+
             hero = new Slime()
             {
                 Active = true
             };
+            _gridSpaces[hero.XPos, hero.YPos] = (int)CellType.Slime;
 
-            while (x == (hero.Position.X - 30) / 32)
-            {
-                x = _random.Next(27);
-            }
-            while (y == (hero.Position.Y - 125) / 32)
-            {
-                y = _random.Next(12);
-            }
-            enemySlime = new EvilSlime(x, y);
-            hittableObjects.Add(enemySlime);
+            (int, int) posValues = objectGeneration.FindEnemySpawnLocation(_gridSpaces);
+            _gridSpaces[posValues.Item1, posValues.Item2] = (int)CellType.EvilSlime;
+            enemySlimes[0].NewValues(posValues.Item1, posValues.Item2, 10, 1);
+            enemySlimesCount = 1;
+            hittableObjects.Add(enemySlimes[0]);
+
             mainCrate = new LootCrate(false);
             lootCrates.Add(mainCrate);
 
@@ -145,11 +154,15 @@ namespace SlimeFighter
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             _spriteBatch2 = new SpriteBatch(GraphicsDevice);
 
-            // TODO: use this.Content to load your game content here
             _tilemap.LoadContent(Content);
             hero.LoadContent(Content);
-            enemySlime.LoadContent(Content);
+            //enemySlime.LoadContent(Content);
             mainCrate.LoadContent(Content);
+
+            foreach (EvilSlime evilSlime in enemySlimes)
+            {
+                evilSlime.LoadContent(Content);
+            }
 
             crate = new Crate(this, CrateType.Slats, Matrix.Identity);
             camera = new CirclingCamera(this, new Vector3(0, 3, 5), 2f);
@@ -159,14 +172,16 @@ namespace SlimeFighter
                 tile.LoadContent(Content);
             }
 
-            potion = Content.Load<Texture2D>("PNGs/Potion");
             title = Content.Load<Texture2D>("PNGs/SlimeLogo");
+            potion = Content.Load<Texture2D>("PNGs/Potion");
             baseHP = Content.Load<Texture2D>("EmptyHPBar");
             HP = Content.Load<Texture2D>("FullHPBar");
             clock = Content.Load<Texture2D>("PNGs/TickingClock");
+            heal = Content.Load<SoundEffect>("Heal");
             intro = Content.Load<Song>("MP3s/IntroSong");
             gameplay = Content.Load<Song>("MP3s/BeepBox-Song");
             lootbox = Content.Load<Song>("MP3s/LootboxOpening");
+            selectionScreen = Content.Load<Song>("MP3s/SelectionSong");
             gameOver = Content.Load<Song>("MP3s/GameOver");
             spriteFont = Content.Load<SpriteFont>("Arial");
             gameOverHeader = Content.Load<SpriteFont>("GameOver");
@@ -193,6 +208,7 @@ namespace SlimeFighter
                         (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
                     {
                         _gridSpaces = new int[28, 13];
+                        round = 1;
                         MediaPlayer.Play(gameplay);
                         gameState = state.gameLive;
                     }
@@ -214,6 +230,7 @@ namespace SlimeFighter
                     break;
 
                 case state.gameLive:
+                    // Checking for game pause
                     if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
                     {
@@ -221,6 +238,27 @@ namespace SlimeFighter
                         break;
                     }
 
+                    // Updates for the hero and enemy slimes and checking the consequences of their updates
+                    for (int i = 0; i < enemySlimesCount; i++)
+                    {
+                        if (enemySlimes[i].Inactive && enemySlimes[i].Scale < .02f)
+                        {
+                            for (int j = i + 1; j < enemySlimesCount; j++)
+                            {
+                                //enemySlimes[j - 1] = enemySlimes[j];
+                                hittableObjects.Remove(enemySlimes[j]);
+                                _gridSpaces[enemySlimes[j-1].XPos, enemySlimes[j-1].YPos] = (int)CellType.Open;
+                                enemySlimes[j - 1].ReplaceSlime(enemySlimes[j].XPos, enemySlimes[j].YPos, enemySlimes[j].Health, enemySlimes[j].MaxHealth, enemySlimes[j].Attack, enemySlimes[j].CooldownTimer);
+                                _gridSpaces[enemySlimes[j-1].XPos, enemySlimes[j-1].YPos] = (int)CellType.EvilSlime;
+                                hittableObjects.Add(enemySlimes[j - 1]);
+                            }
+
+                            enemySlimesCount--;
+                        }
+                        enemySlimes[i].Update(gameTime, ref _gridSpaces, x, y);
+                    }
+
+                    // Iterating through the hittable objects and checking if there are any updates to be made
                     if (hittableObjects.Count > 0)
                     {
                         int i = 0;
@@ -228,17 +266,50 @@ namespace SlimeFighter
                         while(i < hittableObjects.Count)
                         {
                             var item = hittableObjects[i];
-                            if (item.Inactive) hittableObjects.Remove(item);
+                            if (item.Inactive)
+                            {
+                                hittableObjects.Remove(item);
+                                if (item.GetType() == typeof(EvilSlime))
+                                {
+                                    EvilSlime slime = (EvilSlime)item;
+                                    int v = (slime.Attack + slime.MaxHealth) / 4;
+                                    var drop = objectGeneration.RandomizeDrop(round, v);
+
+                                    if (drop.item == CellType.Potion)
+                                    {
+                                        Potion p = new Potion(slime.XPos, slime.YPos, drop.value);
+                                        p.SetTexture(potion);
+                                        _gridSpaces[p.XPos, p.YPos] = (int)CellType.Potion;
+                                        potions.Add(p);
+                                    }
+                                }
+                            }
                             i++;
                         }
                     }
 
-                    if (enemySlime.Inactive && !_potionCollected && Vector2.Distance(hero.Position, enemySlime.Position) < 10f)
+                    // Potion checks
+                    if (potions.Count > 0)
                     {
-                        hero.Heal(5);
-                        _potionCollected = true;
+                        int i = 0;
+
+                        while(i < potions.Count)
+                        {
+                            if (hero.XPos == potions[i].XPos && hero.YPos == potions[i].YPos)
+                            {
+                                hero.Heal(potions[i].Collect());
+                                heal.Play();
+                            }
+                            if (potions[i].Available)
+                            {
+                                _gridSpaces[potions[i].XPos, potions[i].YPos] = (int)CellType.Open;
+                                potions.Remove(potions[i]);
+                            }
+                            i++;
+                        }
                     }
-                    
+
+                    // Checking if the crate hit flag has been triggered to end the round
                     if (_crateHit)
                     {
                         gameState = state.lootChest;
@@ -247,25 +318,27 @@ namespace SlimeFighter
                         break;
                     }
 
-                    enemySlime.Update(gameTime, ref _gridSpaces, x, y);
+                    //enemySlime.Update(gameTime, ref _gridSpaces, x, y);
                     hero.Update(gameTime, ref _gridSpaces);
 
-                    if (enemySlime.Attacking)
+                    for (int i = 0; i < enemySlimesCount; i++)
                     {
-                        DamageCheck(enemySlime.XPos, enemySlime.YPos, enemySlime.AttackDistance, enemySlime.Attack, true, enemySlime.AttackClass, enemySlime.Direction);
-                    }
+                        if (enemySlimes[i].Attacking)
+                        {
+                            DamageCheck(enemySlimes[i].XPos, enemySlimes[i].YPos, enemySlimes[i].AttackDistance, enemySlimes[i].Attack, true, enemySlimes[i].AttackClass, enemySlimes[i].Direction);
+                        }
+                    }                    
 
                     if (hero.HasAttacked)
                     {
-                        DamageCheck(hero.XPos, hero.YPos, hero.AttackDistance, hero.Attack, false, hero.AttackClass, hero.Direction);
+                          DamageCheck(hero.XPos, hero.YPos, hero.AttackDistance, hero.Attack, false, hero.AttackClass, hero.Direction);
                     }
 
-                    if (enemySlime.Inactive)
+                    // If enemy slimes are inactive try to add the main loot crate to the arena
+                    if (enemySlimesCount == 0)
                     {
                         if (mainCrate.Inactive && !_crateHit)
                         {
-                            _gridSpaces[enemySlime.XPos, enemySlime.YPos] = (int)CellType.Potion;
-
                             if (!mainCrate.Spawn(13, 6, ref _gridSpaces))
                             {
                                 mainCrate.TakeDamage(1);
@@ -280,6 +353,7 @@ namespace SlimeFighter
                         }
                     }
 
+                    // Checking for game over
                     if (hero.Death)
                     {
                         gameState = state.gameOver;
@@ -295,10 +369,17 @@ namespace SlimeFighter
                     if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Escape)) && !previousKeyboardState.IsKeyDown(Keys.Escape))
                     {
-                        gameState = state.titleScreen;
+                        potions.Clear();
+                        lootCrates.Clear();
                         hero.ResetValues();
-                        enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
+
+                        (int, int) posValues = objectGeneration.FindEnemySpawnLocation(_gridSpaces);
+                        _gridSpaces[posValues.Item1, posValues.Item2] = (int)CellType.EvilSlime;
+                        enemySlimes[0].NewValues(posValues.Item1, posValues.Item2, 10, 1);
+                        hittableObjects.Add(enemySlimes[0]);
+                        enemySlimesCount = 1;
                         MediaPlayer.Play(intro);
+                        gameState = state.titleScreen;
                     }
                     break;
 
@@ -307,11 +388,11 @@ namespace SlimeFighter
 
                     if (MediaPlayer.State == MediaState.Stopped)
                     {
+                        MediaPlayer.Play(selectionScreen);
                         MediaPlayer.IsRepeating = true;
-                        MediaPlayer.Play(gameplay);
                         string attribute;
                         int value;
-                        (attribute, value) = RandomizeAttributes();
+                        (attribute, value) = objectGeneration.RandomizeAttributes();
 
                         hero.IncreaseStat(attribute, value, AttackType.StraightAhead);
                         lootScreenStatText = $"{attribute} was increased by {value}!";
@@ -331,27 +412,40 @@ namespace SlimeFighter
                         if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter) && MediaPlayer.IsRepeating == true)
                         {
-                            enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
-                            hittableObjects.Add(enemySlime);
+                            potions.Clear();
+                            lootCrates.Clear();
                             _crateHit = false;
-                            _potionCollected = false;
+                            round++;
+
+                            enemySlimes = objectGeneration.SpawnEnemies(objectGeneration.CalculateDifficulty(round, hero), enemySlimes, ref enemySlimesCount, ref _gridSpaces);
+                            for (int i = 0; i < enemySlimesCount; i++)
+                            {
+                                hittableObjects.Add(enemySlimes[i]);
+                            }
                             _lootScreenTransition = false;
                             camera.SetPosition(cameraStartPosition);
+                            MediaPlayer.Play(gameplay);
+                            MediaPlayer.IsRepeating = true;
                             gameState = state.gameLive;
                         }
 
                         if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Escape)) && !previousKeyboardState.IsKeyDown(Keys.Escape))
                         {
-                            gameState = state.titleScreen;
+                            potions.Clear();
+                            lootCrates.Clear();
                             _crateHit = false;
-                            _potionCollected = false;
-                            _lootScreenTransition = false;
                             hero.ResetValues();
-                            enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
-                            hittableObjects.Add(enemySlime);
+
+                            (int, int) posValues = objectGeneration.FindEnemySpawnLocation(_gridSpaces);
+                            _gridSpaces[posValues.Item1, posValues.Item2] = (int)CellType.EvilSlime;
+                            enemySlimes[0].NewValues(posValues.Item1, posValues.Item2, 10, 1);
+                            hittableObjects.Add(enemySlimes[0]);
+                            enemySlimesCount = 1;
+                            _lootScreenTransition = false;
                             camera.SetPosition(cameraStartPosition);
                             MediaPlayer.Play(intro);
+                            gameState = state.titleScreen;
                         }
                     }
                     break;
@@ -364,10 +458,17 @@ namespace SlimeFighter
                     if ((gamePadState.Buttons.Start == ButtonState.Pressed && previousGamePadSate.Buttons.Start != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Enter)) && !previousKeyboardState.IsKeyDown(Keys.Enter))
                     {
-                        gameState = state.titleScreen;
-                        MediaPlayer.Play(intro);
+                        potions.Clear();
+                        lootCrates.Clear();
                         hero.ResetValues();
-                        enemySlime.NewValues(_random.Next(27), _random.Next(12), _random.Next(20) + 1, _random.Next(3) + 1);
+
+                        (int, int) posValues = objectGeneration.FindEnemySpawnLocation(_gridSpaces);
+                        _gridSpaces[posValues.Item1, posValues.Item2] = (int)CellType.EvilSlime;
+                        enemySlimes[0].NewValues(posValues.Item1, posValues.Item2, 10, 1);
+                        hittableObjects.Add(enemySlimes[0]);
+                        enemySlimesCount = 1;
+                        MediaPlayer.Play(intro);
+                        gameState = state.titleScreen;
                     }
                     if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Escape)) && !previousKeyboardState.IsKeyDown(Keys.Escape))
@@ -398,20 +499,43 @@ namespace SlimeFighter
                     tile.Draw(gameTime, _spriteBatch);
                 }
 
-                if (enemySlime.Inactive)
+                foreach(Potion potion in potions)
                 {
-                    if (!_potionCollected) _spriteBatch.Draw(potion, enemySlime.Position, Color.White);
-                    //if (!_crateHit) _spriteBatch.Draw(crate2D, cratePos, Color.White);
-                    if (!mainCrate.Inactive) mainCrate.Draw(gameTime, _spriteBatch);
+                    potion.Draw(gameTime, _spriteBatch);
                 }
 
-                enemySlime.Draw(gameTime, _spriteBatch);
+                if (enemySlimesCount != 0)
+                {
+                    for (int i = 0; i < enemySlimesCount; i++)
+                    {
+                        enemySlimes[i].Draw(gameTime, _spriteBatch);
+                    }
+                } else
+                {
+                    mainCrate.Draw(gameTime, _spriteBatch);
+                }
+
                 hero.Draw(gameTime, _spriteBatch);
 
                 int avg = (int)(180 * (float)hero.Health / (float)hero.MaxHealth);
 
                 _spriteBatch.Draw(baseHP, new Vector2(30, 30), new Rectangle(0, 0, 180, 20), Color.White);
                 _spriteBatch.Draw(HP, new Vector2(30, 30), new Rectangle(0, 0, avg, 20), Color.White);
+
+                if (hero.Waiting && !hero.Death)
+                {
+                    clockAnimationTimer += (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+                    if (clockAnimationTimer > 0.1f)
+                    {
+                        if (clockAnimationFrame < 3) clockAnimationFrame++;
+                        else clockAnimationFrame = 0;
+
+                        clockAnimationTimer -= 0.1f;
+                    }
+
+                    _spriteBatch.Draw(clock, new Vector2(890, 547), new Rectangle(clockAnimationFrame * 64, 0, 64, 64), Color.White, 0, new Vector2(0, 0), .5f, SpriteEffects.None, 0);
+                }
             }
             _spriteBatch.End();
             
@@ -453,7 +577,7 @@ namespace SlimeFighter
 
                     if (_lootScreenTransition)
                     {
-                        _spriteBatch2.DrawString(spriteFont, $"HP: {hero.MaxHealth}\nAttack: {hero.Attack}\nSpeed: {hero.Speed}\nAttack Distance: {hero.AttackDistance}",
+                        _spriteBatch2.DrawString(spriteFont, $"HP: {hero.MaxHealth}\nAttack: {hero.Attack}\nSpeed: {hero.Speed}\nRange: {hero.AttackDistance}",
                         new Vector2(_graphics.GraphicsDevice.Viewport.Width * 0.14f,
                         (_graphics.GraphicsDevice.Viewport.Height * 0.3f) - 20), Color.LightGoldenrodYellow);
 
@@ -829,30 +953,6 @@ namespace SlimeFighter
                     break;
             }
             return false;
-        }
-
-        /// <summary>
-        /// This function is purely temporary to fulfill gameplay loop by giving random stat increase, I will replace with a better loot table styled version in the future
-        /// </summary>
-        // Function to randomize and return a dictionary of attributes and their values
-        public (string attribute, int amount) RandomizeAttributes()
-        {
-            // Attributes to randomize
-            string[] attributes = { "Attack", "HP", "Speed", "Range"};
-
-            // Choose a random attribute
-            string selectedAttribute = attributes[_random.Next(attributes.Length)];
-
-            // Generate a random amount between 1 and 2
-            int amount = _random.Next(1, 3);
-
-            if (selectedAttribute == "HP")
-            {
-                amount *= 2;
-            }
-
-            // Return the selected attribute and the random amount
-            return (selectedAttribute, amount);
-        }
+        }        
     }
 }

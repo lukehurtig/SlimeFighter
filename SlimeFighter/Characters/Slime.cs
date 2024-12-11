@@ -19,6 +19,7 @@ namespace SlimeFighter.Characters
         private double attackWaitTime;
         private int animationFrame = 0;
         private int animationIndex = 0;
+        private bool waiting = false;
         private bool attacking = false;
         private bool hasAttacked = false;
         private bool damaged = false;
@@ -37,7 +38,6 @@ namespace SlimeFighter.Characters
         private int maxHealth;
         private int attack;
         private int attackDistance;
-        private int attackSpeed;
         private int speed;
 
         /// <summary>
@@ -48,6 +48,7 @@ namespace SlimeFighter.Characters
         private Texture2D texture;
         private int xPos = 2;
         private int yPos = 10;
+        private SoundEffect hitSound;
         private SoundEffect deathSound;
         private char direction;
         private SpriteEffects spriteEffect = SpriteEffects.None;
@@ -66,6 +67,7 @@ namespace SlimeFighter.Characters
         public int AttackDistance => attackDistance;
         public bool HasAttacked => hasAttacked;
         public bool Attacking => attacking;
+        public bool Waiting => waiting;
         public bool Damaged => damaged;
         public char Direction => direction;
         public double MoveWaitTime => moveWaitTime;
@@ -82,7 +84,6 @@ namespace SlimeFighter.Characters
             this.attack = 2;
             this.attackDistance = 1;
             this.speed = 1;
-            this.attackSpeed = 1;
             this.moveWaitTime = 0.52f - (float)(speed * 0.02f);
             this.attackWaitTime = 0.52f - (float)(speed * 0.02f);
             this.direction = 'E';
@@ -91,6 +92,7 @@ namespace SlimeFighter.Characters
         public void LoadContent(ContentManager content)
         {
             texture = content.Load<Texture2D>("PNGs/SlimeCharacter(WithAlpha)");
+            hitSound = content.Load<SoundEffect>("Hit_Wobble");
             deathSound = content.Load<SoundEffect>("Death");
         }
 
@@ -123,9 +125,10 @@ namespace SlimeFighter.Characters
                 gamePadState = GamePad.GetState(PlayerIndex.One);
                 keyboardState = Keyboard.GetState();
 
-                if (!HasMoved)
+                if (!HasMoved && CooldownTimer > moveWaitTime)
                 {
-                    if (!attacking && CooldownTimer > moveWaitTime)
+                    waiting = false;
+                    if (!attacking)
                     {
                         if (((gamePadState.DPad.Right == ButtonState.Pressed && previousGamePadState.DPad.Right != ButtonState.Pressed) ||
                         (keyboardState.IsKeyDown(Keys.Right) && !previousKeyboardState.IsKeyDown(Keys.Right)) ||
@@ -196,11 +199,14 @@ namespace SlimeFighter.Characters
                         CooldownTimer = 0;
                     }
                     #endregion Input Handling
+                } else
+                {
+                    waiting = true;
                 }
 
                 if (health <= 0 && !death)
                 {
-                    deathSound.Play();
+                    deathSound.Play(0.5f, 0, 0);
                     animationIndex = 0;
                     death = true;
                 }
@@ -261,6 +267,7 @@ namespace SlimeFighter.Characters
             damaged = true;
             animationFrame = 0;
             health -= amount;
+            hitSound.Play();
         }
 
         public bool IncreaseStat(string stat, int amount, AttackType attackType)
@@ -278,9 +285,8 @@ namespace SlimeFighter.Characters
                 case "HP":
                     if (health < MAX_HP)
                     {
-                        if (health + amount > maxHealth) health = maxHealth;
-                        else health += amount;
                         maxHealth += amount;
+                        health += amount;
                         return true;
                     }
                     return false;

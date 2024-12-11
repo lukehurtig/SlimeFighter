@@ -165,6 +165,24 @@
 /processorParam:TextureFormat=Compressed
 /build:GameOver.spritefont
 
+#begin Heal.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:Heal.wav
+
+#begin Hit_Wobble.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:Hit_Wobble.wav
+
+#begin Hit.wav
+/importer:WavImporter
+/processor:SoundEffectProcessor
+/processorParam:Quality=Best
+/build:Hit.wav
+
 #begin Jump.wav
 /importer:WavImporter
 /processor:SoundEffectProcessor
@@ -183,6 +201,18 @@
 /processorParam:Quality=Best
 /build:MP3s/BeepBox-Song.mp3
 
+#begin MP3s/BossBattle.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:MP3s/BossBattle.mp3
+
+#begin MP3s/BossRoundTransition.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:MP3s/BossRoundTransition.mp3
+
 #begin MP3s/GameOver.mp3
 /importer:Mp3Importer
 /processor:SongProcessor
@@ -200,6 +230,18 @@
 /processor:SongProcessor
 /processorParam:Quality=Best
 /build:MP3s/LootboxOpening.mp3
+
+#begin MP3s/RoundTransition.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:MP3s/RoundTransition.mp3
+
+#begin MP3s/SelectionSong.mp3
+/importer:Mp3Importer
+/processor:SongProcessor
+/processorParam:Quality=Best
+/build:MP3s/SelectionSong.mp3
 
 #begin PNGs/Asets.png
 /importer:TextureImporter

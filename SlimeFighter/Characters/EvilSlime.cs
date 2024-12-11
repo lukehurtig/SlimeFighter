@@ -16,7 +16,7 @@ namespace SlimeFighter.Characters
         /// Upkeep animation timers and booleans for states
         /// </summary>
         private double animationTimer = 0;
-        private double waitTime = 0.85f;
+        private double waitTime = 0.6f;
         private int animationFrame = 0;
         private int animationIndex = 0;
         private bool attacking = false;
@@ -40,6 +40,7 @@ namespace SlimeFighter.Characters
         private Texture2D texture;
         private int xPos;
         private int yPos;
+        private SoundEffect hitSound;
         private SoundEffect deathSound;
         private char direction;
         private SpriteEffects spriteEffect = SpriteEffects.None;
@@ -60,22 +61,25 @@ namespace SlimeFighter.Characters
         public bool Damaged => damaged;
         public char Direction => direction;
         public bool Inactive => death;
+        public float Scale => scale;
         public AttackType AttackClass = AttackType.Plus;
 
-        public EvilSlime(int iniPosX, int iniPosY)
+        public EvilSlime()
         {
-            this.xPos = iniPosX;
-            this.yPos = iniPosY;
-            this.health = 10;
-            this.attack = 1;
-            this.attackDistance = 1;
-            this.speed = 1;
-            this.direction = 'E';
+            xPos = 1;
+            yPos = 1;
+            maxHealth = 10;
+            health = maxHealth;
+            attack = 1;
+            attackDistance = 1;
+            speed = 1;
+            direction = 'E';
         }
 
         public void LoadContent(ContentManager content)
         {
             texture = content.Load<Texture2D>("PNGs/SlimeCharacter(WithAlpha)");
+            hitSound = content.Load<SoundEffect>("Hit");
             deathSound = content.Load<SoundEffect>("Death");
         }
 
@@ -94,7 +98,7 @@ namespace SlimeFighter.Characters
             {
                 animationIndex = 0;
                 death = true;
-                deathSound.Play();
+                deathSound.Play(0.5f, 0, 0);
                 gameGrid[xPos, yPos] = (int)CellType.Open;
                 return;
             }
@@ -120,36 +124,44 @@ namespace SlimeFighter.Characters
                 if (AttackingRange(gameGrid))
                 {
                     attacking = true;
-                    CooldownTimer = 0;
+                    CooldownTimer -= waitTime;
                 }
                 else if (Math.Abs(distanceX) >= Math.Abs(distanceY))
                 {
                     if (distanceX >= 1 && xPos < gameGrid.GetLength(0) - 1 && gameGrid[xPos + 1, yPos] != (int)CellType.Slime)
                     {
-                        xPos += 1;  // Move right
-                        CooldownTimer = 0;
+                        if (gameGrid[xPos + 1, yPos] < (int)CellType.ImpassObj1)
+                        {
+                            xPos += 1;  // Move right
+                        }
                     }
                     else if (distanceX < 1 && xPos > 0 && gameGrid[xPos - 1, yPos] != (int)CellType.Slime)
                     {
-                        xPos -= 1;  // Move left
-                        CooldownTimer = 0;
+                        if (gameGrid[xPos - 1, yPos] < (int)CellType.ImpassObj1)
+                        {
+                            xPos -= 1;  // Move left
+                        }
                     }
                 }
                 else
                 {
                     if (distanceY > 1 && yPos < gameGrid.GetLength(1) - 1 && gameGrid[xPos, yPos + 1] != (int)CellType.Slime)
                     {
-                        yPos += 1;  // Move down
-                        CooldownTimer = 0;
+                        if (gameGrid[xPos, yPos + 1] < (int)CellType.ImpassObj1)
+                        {
+                            yPos += 1;  // Move down
+                        }
                     }
                     else if (distanceY <= 1 && yPos > 0 && gameGrid[xPos, yPos - 1] != (int)CellType.Slime)
                     {
-                        yPos -= 1;  // Move up
-                        CooldownTimer = 0;
+                        if (gameGrid[xPos, yPos - 1] < (int)CellType.ImpassObj1)
+                        {
+                            yPos -= 1;  // Move up
+                        }
                     }
                 }
-
                 gameGrid[xPos, yPos] = (int)CellType.EvilSlime;
+                CooldownTimer -= waitTime;
             }
         }
 
@@ -178,16 +190,34 @@ namespace SlimeFighter.Characters
         /// <param name="newAttack">the new attack value for the enemy slime</param>
         public void NewValues(int iniPosX, int iniPosY, int newHealth, int newAttack)
         {
-            this.xPos = iniPosX;
-            this.yPos = iniPosY;
-            this.health = newHealth;
-            this.attack = newAttack;
-            this.attackDistance = 1;
-            this.speed = 1;
-            this.scale = 0.115f;
-            if (xPos <= 13) this.direction = 'E';
-            else this.direction = 'W';
-            this.death = false;
+            xPos = iniPosX;
+            yPos = iniPosY;
+            maxHealth = newHealth;
+            health = newHealth;
+            attack = newAttack;
+            attackDistance = 1;
+            speed = 1;
+            scale = 0.115f;
+            if (xPos <= 13) direction = 'E';
+            else direction = 'W';
+            death = false;
+        }
+
+        public void ReplaceSlime(int posX, int posY, int newHealth, int newMaxHealth,  int newAttack, double currentCooldown)
+        {
+            xPos = posX;
+            yPos = posY;
+            maxHealth = newHealth;
+            health = newHealth;
+            maxHealth = newMaxHealth;
+            attack = newAttack;
+            CooldownTimer = currentCooldown;
+            attackDistance = 1;
+            speed = 1;
+            scale = 0.115f;
+            if (xPos <= 13) direction = 'E';
+            else direction = 'W';
+            death = false;
         }
 
         /// <summary>
@@ -208,6 +238,7 @@ namespace SlimeFighter.Characters
         {
             damaged = true;
             animationFrame = 0;
+            hitSound.Play();
 
             if (health - amount < 0)
             {

@@ -1,3 +1,3 @@
 ﻿
-using var game = new SlimeFighter.Game1();
+using var game = new SlimeFighter.SlimeFighter();
 game.Run();

@@ -158,7 +158,7 @@ namespace SlimeFighter.PassiveObjects
             if (damage > 0)
             {
                 _inactive = true;
-                hitSound.Play();
+                hitSound.Play(0.5f, 0, 0);
             }
         }
     }
