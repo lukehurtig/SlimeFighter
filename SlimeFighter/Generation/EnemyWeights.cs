@@ -11,11 +11,11 @@ namespace SlimeFighter.Generation
         /// <summary>
         /// The multipliers to influence the stats of the spawned slime enemies
         /// </summary>
-        public double DifficultyThreshold { get; set; } = 30.0; // Total allowable difficulty contribution
+        public double DifficultyThreshold { get; set; } = 40.0; // Total allowable difficulty contribution
         public int BaseEnemyCount { get; set; } = 2; // Minimum enemies per round
-        public double RoundWeight { get; set; } = 0.4; // Gives a weight for the round number
-        public double PlayerStatsWeight { get; set; } = 0.5; // Gives a weight for cumulative players stats
-        public double AttackTypeWeight { get; set; } = 0.1; // Gives a weight for attack type
+        public double RoundWeight { get; set; } = 0.6; // Gives a weight for the round number
+        public double PlayerStatsWeight { get; set; } = 0.8; // Gives a weight for cumulative players stats
+        public double AttackTypeWeight { get; set; } = 0.05; // Gives a weight for attack type
         public double EnemyCountMultiplier { get; set; } = 1.0; // Extra enemies per difficulty rating
 
         /// <summary>

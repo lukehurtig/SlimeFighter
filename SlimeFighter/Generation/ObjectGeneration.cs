@@ -182,7 +182,7 @@ namespace SlimeFighter.Generation
 
             if (round < 40)
             {
-                missRate = (1f + round) / 100f;
+                missRate = (1f + (round * 2f)) / 100f;
             }
             else
             {

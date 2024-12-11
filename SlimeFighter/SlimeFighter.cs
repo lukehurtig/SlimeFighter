@@ -34,8 +34,6 @@ namespace SlimeFighter
         /// <summary>
         /// Objects and booleans used to get the game running
         /// </summary>
-        //private Random _randomSeed = new Random();
-        //private Random _random = new Random();
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
         private SpriteBatch _spriteBatch2;
@@ -61,6 +59,7 @@ namespace SlimeFighter
         private int enemySlimesCount = 0;
         private int clockAnimationFrame = 0;
         private float completeTextPos = -50f;
+        private float transitionTextPos = -300f;
         private float clockAnimationTimer = 0;
 
         /// <summary>
@@ -81,6 +80,7 @@ namespace SlimeFighter
         private Song gameplay;
         private Song lootbox;
         private Song selectionScreen;
+        private Song transitionScreen;
         private Song gameOver;
         private SpriteFont spriteFont;
         private SpriteFont gameOverHeader;
@@ -182,6 +182,7 @@ namespace SlimeFighter
             gameplay = Content.Load<Song>("MP3s/BeepBox-Song");
             lootbox = Content.Load<Song>("MP3s/LootboxOpening");
             selectionScreen = Content.Load<Song>("MP3s/SelectionSong");
+            transitionScreen = Content.Load<Song>("MP3s/RoundTransition");
             gameOver = Content.Load<Song>("MP3s/GameOver");
             spriteFont = Content.Load<SpriteFont>("Arial");
             gameOverHeader = Content.Load<SpriteFont>("GameOver");
@@ -209,8 +210,10 @@ namespace SlimeFighter
                     {
                         _gridSpaces = new int[28, 13];
                         round = 1;
-                        MediaPlayer.Play(gameplay);
-                        gameState = state.gameLive;
+
+                        gameState = state.transition;
+                        MediaPlayer.IsRepeating = false;
+                        MediaPlayer.Play(transitionScreen);
                     }
                     if (gamePadState.Buttons.Y == ButtonState.Pressed || keyboardState.IsKeyDown(Keys.Space))
                     {
@@ -398,6 +401,7 @@ namespace SlimeFighter
                         lootScreenStatText = $"{attribute} was increased by {value}!";
 
                         _lootScreenTransition = true;
+                        completeTextPos = -50f;
 
                         // Temp variables to get game running
                         hittableObjects.Remove(mainCrate);
@@ -424,9 +428,9 @@ namespace SlimeFighter
                             }
                             _lootScreenTransition = false;
                             camera.SetPosition(cameraStartPosition);
-                            MediaPlayer.Play(gameplay);
-                            MediaPlayer.IsRepeating = true;
-                            gameState = state.gameLive;
+                            gameState = state.transition;
+                            MediaPlayer.IsRepeating = false;
+                            MediaPlayer.Play(transitionScreen);
                         }
 
                         if ((gamePadState.Buttons.Back == ButtonState.Pressed && previousGamePadSate.Buttons.Back != ButtonState.Pressed) ||
@@ -452,6 +456,16 @@ namespace SlimeFighter
 
                 case state.transition:
                     // TODO: Still need to implement screen between stages and decisions for player to improve slime
+                    if (MediaPlayer.State == MediaState.Stopped)
+                    {
+                        transitionTextPos = -300f;
+                        MediaPlayer.Play(gameplay);
+                        MediaPlayer.IsRepeating = true;
+                        gameState = state.gameLive;
+                    } else
+                    {
+                        if (transitionTextPos < 235f) transitionTextPos += 2f;
+                    }
                     break;
 
                 case state.gameOver:
@@ -490,7 +504,6 @@ namespace SlimeFighter
                        Matrix.CreateTranslation(-10, -15, 0);
 
             _spriteBatch.Begin(transformMatrix: transform);
-            // TODO: Add your drawing code here            
             _tilemap.Draw(gameTime, _spriteBatch);
             if (gameState > state.tutorial)
             {
@@ -558,11 +571,14 @@ namespace SlimeFighter
                 _spriteBatch2.DrawString(spriteFont, "- Move with WASD, Arrow Keys, or DPad\n- Press Space Bar or Right Trigger to Attack\n- Press Enter or Start to Pause the game\n-The goal of the game is to survive as many\n rounds as possible, every round you survive\n the stronger you get, but watch your health (HP)\n\n   - Press Enter or Start to Return to Menu -",
                     new Vector2(75, 100), Color.LightGoldenrodYellow);
             }
+            if (gameState == state.transition)
+            {
+                _spriteBatch2.DrawString(gameOverHeader, $"Round {round}",
+                        new Vector2((transitionTextPos), _graphics.GraphicsDevice.Viewport.Height * 0.5f - 30), Color.MintCream);
+            }
             if (gameState == state.lootChest)
             {
                 crate.Draw(camera);
-                //_spriteBatch2.DrawString(spriteFont, "- This game is still a Work in Progress\n I intend to make it so each crate destroyed\n upgrades the player through stats,\n abilities or attack types.\n- Also more enemies to come with\n varied spawns and ammounts\n- Also AI could use a little work, but solid start\n\n   - Press Enter or Start to Return to Menu -\n   - Or Press ESC or Back to Exit the Game -",
-                //   new Vector2(75, 60), Color.LightGoldenrodYellow);
                 if (MediaPlayer.IsRepeating == false)
                 {
                     if (completeTextPos <= _graphics.GraphicsDevice.Viewport.Height * 0.5f - 20) completeTextPos += 5;
@@ -660,9 +676,6 @@ namespace SlimeFighter
                                     indicationTiles[x, y].Activate(CellType.EnemyIndicator);
                                 }
                             }
-                            /*
-                            * TODO: Need to change once I add more than one enemy
-                            */
                             else if (_gridSpaces[x, y] >= (int)CellType.Crate)
                             {
                                 indicationTiles[x, y].Activate(CellType.HitIndicator);
@@ -708,9 +721,6 @@ namespace SlimeFighter
                             }
                             else if (x != xCord) indicationTiles[x, yCord].Activate(CellType.EnemyIndicator);
                         }
-                        /*
-                        * TODO: Need to change once I add more than one enemy
-                        */
                         else if (_gridSpaces[x, yCord] >= (int)CellType.Crate)
                         {
                             indicationTiles[x, yCord].Activate(CellType.HitIndicator);
@@ -748,9 +758,6 @@ namespace SlimeFighter
                             }
                             else if (y != yCord) indicationTiles[xCord, y].Activate(CellType.EnemyIndicator);
                         }
-                        /*
-                        * TODO: Need to change once I add more than one enemy
-                        */
                         else if (_gridSpaces[xCord, y] >= (int)CellType.Crate)
                         {
                             indicationTiles[xCord, y].Activate(CellType.HitIndicator);
@@ -909,9 +916,6 @@ namespace SlimeFighter
                                     indicationTiles[x, y].Activate(CellType.EnemyIndicator);
                                 }
                             }
-                            /*
-                            * TODO: Need to change once I add more than one enemy
-                            */
                             else if (_gridSpaces[x, y] >= (int)CellType.Crate)
                             {
                                 indicationTiles[x, y].Activate(CellType.HitIndicator);
